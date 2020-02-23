@@ -40,7 +40,7 @@ def feedBackType(frame):
 
 def gray_screen(video_filename):
 
-    cap = cv2.VideoCapture('data/video/05.mp4') #video name
+    cap = cv2.VideoCapture('data/video/01.mp4') #video name
     prevFrame = None
 
     sides = []
@@ -74,26 +74,18 @@ def gray_screen(video_filename):
         snap = frame[height//2 - 50 : height//2 + 50,
                           width // 2 - 100 : width // 2 + 100,:]
 
-        '''
-        cv2.imshow("pic", snap)
-        cv2.imshow("frame", frame)
-        cv2.waitKey(2)
-        '''
 
         if feedBack(yellow, green, red):
-            seenfeedBack = True
-        else:
-            if seenfeedBack and not np.array_equal(prevFrame, None):
-                seenfeedBack = False
-                cv2.imwrite('tempData/activity_time/frame'+str(feedBack_num)+'.jpg', prevFrame)
-                #print(cap.get(cv2.CAP_PROP_POS_MSEC))
+            f = feedBackType(frame)
+            if not seenfeedBack and f != None:
+                print(f, feedBack_num)
+                cv2.imwrite('tempData/activity_time/feedback'+str(feedBack_num)+'.jpg', frame)
                 feedBack_num += 1
-                f = feedBackType(prevFrame) #change this variable name
-                if (f == None):
-                    print("could not classify")
-                else:
-                    print(f)
-        '''
+                seenfeedBack = True
+        else:
+            seenfeedBack = False
+
+
         colors, count = np.unique(snap.reshape(-1,snap.shape[-1]),
                                   axis=0, return_counts=True)
 
@@ -111,8 +103,7 @@ def gray_screen(video_filename):
             print("end", cap.get(cv2.CAP_PROP_POS_MSEC))
             num += 1
     # When everything done, release the capture
-        '''
-        prevFrame = frame
+
     cap.release()
     cv2.destroyAllWindows()
     '''
