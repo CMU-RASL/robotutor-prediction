@@ -144,6 +144,7 @@ class Context():
             backbutton_info = self.get_entry('BACKBUTTON', line).lower()
             if len(backbutton_info) > 0:
                 self.activities[-1]['backbutton'] = True
+                
     
     def add_activity_selector_event(self, timestamp, line):
         

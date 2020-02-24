@@ -1,6 +1,8 @@
 import os
 import csv
 import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
 
 def read_feature_csv(filename):
     
@@ -132,6 +134,50 @@ def get_model_data(T,X,Y1,Y2,info,headers,start_val=0,end_val=-1):
         
     return T_arr, X_arr, Y1_arr, Y2_arr
 
+def plot_cdf(z, title):
+    
+    fig, ax = plt.subplots(2,1,figsize=(8, 8))
+    x = np.sort(z)
+    y = np.array(range(len(z)))/float(len(z))
+    
+    ax[0].plot(x, y, 'o-b')
+    
+    perc = [np.percentile(x, ii) for ii in [20, 40, 60, 80]]
+    
+    text = ' Percentiles:\n 0%     {:.1f}\n 20%   {:.1f}\n 40%   {:.1f}\n 60%   {:.1f}\n 80%   {:.1f}\n 100% {:.1f}'.format(0, perc[0], perc[1], perc[2], perc[3], x[-1])
+    
+    ax[0].set_xlim(0,800)
+    ax[0].set_title(title, fontsize=20)
+    ax[0].set_ylabel('CDF', fontsize=14)
+    ax[0].text(0.75, 0.1, text, color="k", fontsize=14,
+                 transform=ax[0].transAxes)
+    
+    ax[1].boxplot(z, vert=False, showfliers=True, widths = 0.65)
+    ax[1].set_ylabel('Boxplot', fontsize=14)
+    ax[1].set_xlim(0,800)
+    ax[1].set_yticklabels([])
+    ax[1].set_xlabel('Time (s)', fontsize=14)
+    plt.show()
+
+def create_cdfs(T, X, Y1, Y2):
+    
+    bail_len = []
+    completed_len = []
+    all_len = []
+    
+    for ii in range(len(X)):
+        
+        if Y2[ii][0] == 0:
+            completed_len.append(T[ii][-1])
+        else:
+            bail_len.append(T[ii][-1])
+        all_len.append(T[ii][-1])
+    
+    plot_cdf(bail_len, 'Bailed')
+    plot_cdf(completed_len, 'Completed')
+    plot_cdf(all_len, 'All')
+    
+
 def main():
     
     T = []
@@ -156,7 +202,9 @@ def main():
                 info.append([vid_ind, activity_ind, activity_name])
     
     model_T, model_X, model_Y1, model_Y2 = get_model_data(T,X,Y1,Y2,info,headers)
-    np.savez('all_data.npz', X=model_X, Y1=model_Y1, Y2=model_Y2, T=model_T)
+    
+    create_cdfs(model_T, model_X, model_Y1, model_Y2)
+    #np.savez('all_data.npz', X=model_X, Y1=model_Y1, Y2=model_Y2, T=model_T)
 
     
 if __name__ == "__main__":

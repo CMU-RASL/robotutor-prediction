@@ -210,7 +210,7 @@ def main():
     
     print('Got timestamps for videos')
     
-    for jj in range(len(matched_info)):
+    for jj in [1]: #range(len(matched_info)):
         print('--------------------------')
         print('Current Video is', matched_info[jj][1])
         
