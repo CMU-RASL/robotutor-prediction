@@ -1,10 +1,26 @@
 import os
 import cv2
+import csv
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
+import helpers as hp
 
-def feedBack(yellow,green,red):
+def get_picture_side(video_filename):
+    cap = cv2.VideoCapture(video_filename) #video name
+    f = open('tempData/picture_side/' + video_filename[-6:-4] +'.txt', 'w+')
+    while(cap.isOpened()):
+        # Capture frame-by-frame
+        ret, frame = cap.read()
+        if not ret:
+            break
+        f.write(str(hp.get_picture_side(frame))+"\n")
+    cap.release()
+    cv2.destroyAllWindows()
+    f.close()
+
+
+def feedBackScreen(yellow,green,red):
     yc, ycount = np.unique(yellow.reshape(-1,yellow.shape[-1]),
                           axis=0, return_counts=True)
     gc, gcount = np.unique(green.reshape(-1,green.shape[-1]),
@@ -30,20 +46,30 @@ def feedBackType(frame):
     r = rc[rcount.argmax()]
 
     if (np.array_equal(g, [208, 246, 208])):
-        return "green"
+        return 1
     elif (np.array_equal(y, [207, 244, 248])):
-        return "yellow"
+        return 0
     elif (np.array_equal(r, [207, 208, 247])):
-        return "red"
+        return -1
     return None
 
+def generateData(video_filename):
+    cap = cv2.VideoCapture(video_filename) #video name
 
-def gray_screen(video_filename):
+    f = open('tempData/picture_side/'+video_filename[-6:-4]+'.txt')
+    all_sides = f.readlines()
+    f.close()
 
-    cap = cv2.VideoCapture('data/video/01.mp4') #video name
-    prevFrame = None
+    headers = ""
+    all_openface = []
+    with open('data/openface/' + video_filename[-6:-4]+'_crop.csv', mode='r') as csv_file:
+           csv_reader = csv.reader(csv_file, delimiter=',')
+           for ii, line in enumerate(csv_reader):
+               if ii == 0:
+                   headers = [s.strip() for s in line]
+               else:
+                   all_openface.append(hp.get_openface_features(headers, line))
 
-    sides = []
     #is this the length of the video?
     length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     seenGray = False
@@ -52,40 +78,85 @@ def gray_screen(video_filename):
     end = []
     num = 1
 
-    feedBack_num = 1
+    feedBack_num = 0
     seenfeedBack = False
+    allfeedBack = []
+    activity_start = False #true means activity has started ans false means ended
+    frame_count = 0
+    totalframe_count = 0 #use this to extract precomputed data
+    activity_name = ""
+    times = []
+    openface = []
+    picture_sides = []
+    lines = []
+    carry = 0
+    record = False #not all screens useful
 
     while(cap.isOpened()):
-
-        #if num > 12:
-        #    break
-
         # Capture frame-by-frame
         ret, frame = cap.read()
 
         if not ret:
             break
 
-        height, width, channels = frame.shape
-        yellow = frame[height // 2 - 10 : height // 2 + 10, width // 4 - 25 : width // 4 + 25]
-        green = frame[height // 5 - 10 : height // 5 + 10, width // 4 - 25 : width // 4 + 25]
-        red = frame[4*height // 5 - 10 : 4*height // 5 + 10, width // 4 - 25 : width // 4 + 25]
+        totalframe_count += 1
 
-        snap = frame[height//2 - 50 : height//2 + 50,
-                          width // 2 - 100 : width // 2 + 100,:]
+        if activity_name == "":
+            activity = hp.get_activity_type(frame)
+            if activity != 'n/a' and not activity_start:
+                activity_start = True
+                activity_name = activity
+        else:
+            if activity_start: #activity starting
+                print("activity started")
+                record = True
+                #reset all variables
+                frame_count = 0
+                times = []
+                picture_sides = []
+                carry = 0
+                lines = []
+                openface = []
+            activity_start = False
+        if not record: continue
 
+        frame_count += 1
+        times.append(frame_count/fps)
+        openface.append(all_openface[totalframe_count-1])
+        picture_sides.append(all_sides[totalframe_count-1])
+        frac = hp.get_read_fraction(frame, picture_sides[len(picture_sides)-1])
+        lines.append(frac+carry)
+        if frac == 1:
+            carry += 1
 
-        if feedBack(yellow, green, red):
-            f = feedBackType(frame)
-            if not seenfeedBack and f != None:
-                print(f, feedBack_num)
-                cv2.imwrite('tempData/activity_time/feedback'+str(feedBack_num)+'.jpg', frame)
+        # if activity_start == False: #activity ended
+        #     createFeatures(video_filename, activityname_name, feedBack_num, allfeedBack[len(allfeedBack)-1], times)
+
+        # height, width, channels = frame.shape
+        # yellow = frame[height // 2 - 10 : height // 2 + 10, width // 4 - 25 : width // 4 + 25]
+        # green = frame[height // 5 - 10 : height // 5 + 10, width // 4 - 25 : width // 4 + 25]
+        # red = frame[4*height // 5 - 10 : 4*height // 5 + 10, width // 4 - 25 : width // 4 + 25]
+
+        # snap = frame[height//2 - 50 : height//2 + 50,
+        #                   width // 2 - 100 : width // 2 + 100,:]
+
+        fb = feedBackType(frame)
+        if fb != None and not seenfeedBack:
+            if fb != None:
+                print("feedback", fb)
+                allfeedBack.append(fb)
                 feedBack_num += 1
                 seenfeedBack = True
-        else:
+                #cv2.imwrite('tempData/activity_time/feedBack'+str(feedBack_num)+'.jpg', frame)
+                createFeatures(video_filename, activity_name, feedBack_num, fb, times, openface, lines, picture_sides)
+                record = False
+                activity_name = ""
+        elif fb == None:
             seenfeedBack = False
 
 
+
+        '''
         colors, count = np.unique(snap.reshape(-1,snap.shape[-1]),
                                   axis=0, return_counts=True)
 
@@ -102,22 +173,39 @@ def gray_screen(video_filename):
             cv2.imwrite('tempData/activity_time/frame' + str(num) +'.jpg', frame)
             print("end", cap.get(cv2.CAP_PROP_POS_MSEC))
             num += 1
+        '''
     # When everything done, release the capture
 
     cap.release()
     cv2.destroyAllWindows()
-    '''
-    f = open('tempData/activity_time/' +
-         video_filename[:2]+'activity.txt', 'w+')
-    for i in range(max(len(start), len(end))):
-        if i < len(start):
-            f.write("start: " + str(start[i]) + "\n")
-        if i < len(end):
-            f.write("end: " + str(end[i]) + "\n")
-    f.close()
-    '''
+    print(totalframe_count)
+
+def createFeatures(video_filename, activity_name, activity_ind, feedBack, times, openface, lines, picture_sides):
+    states = ["temp"]*len(times)
+    o1,o2,o3,o4,o5 = [item[1] for item in openface], [item[2] for item in openface], [item[3] for item in openface], [item[4] for item in openface], [item[5] for item in openface]
+    rows = zip(times,states, o1, o2, o3, o4, o5, lines, picture_sides)
+    with open('tempData/features/'+ video_filename[-6:-4] + '_'+str(activity_ind)+'_' + activity_name + '.csv', 'w') as f:
+        writer = csv.writer(f)
+        writer.writerow(["Video Filename", int(video_filename[-6:-4]), "Activity Int", activity_ind, "Activity Name", activity_name, "Feedback", feedBack, "Backbutton", "Unknown"])
+        writer.writerow(["Time", "State", "Head Proximity", "Head Orientation", "Gaze Direction", "Eye Aspect Ratio", "Pupil Ratio", "Lines", "Picture Side"])
+        for row in rows:
+            writer.writerow(row)
+
+def test():
+    x = [1,2,3]
+    y = [("bob","aoa"),("hi","bye"),("ding","honk")]
+    l1, l2 = [item[0] for item in y], [item[1] for item in y]
+    print(l1)
+    print(l2)
+    # rows = zip(x,z)
+    # rows = zip(rows, x)
+    # with open('tempData/test.csv', 'w') as f:
+    #     writer = csv.writer(f)
+    #     for row in rows:
+    #         writer.writerow(row)
+
 def main():
     video_filenames = os.listdir('data/video')
-    gray_screen("01.mp4")
+    generateData("data/video/01.mp4")
 
 main()

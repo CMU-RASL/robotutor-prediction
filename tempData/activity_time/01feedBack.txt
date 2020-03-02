@@ -1,0 +1,14 @@
+yellow 1
+yellow 2
+yellow 3
+red 4
+red 5
+red 6
+red 7
+red 8
+yellow 9
+yellow 10
+red 11
+yellow 12
+red 13
+red 14
