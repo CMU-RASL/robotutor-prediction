@@ -24,7 +24,8 @@ def propogate(x, t, models, num_classes, incr=0.05, step=1.0):
     return probs, pred, new_t
 
 def run_models(X, Y, T, models, thresh, num_classes = 3, 
-               plot_graphs=True, plot_confusions=True, name='test'):
+               plot_graphs=True, plot_confusions=True, name='test',
+               img_name = ''):
     
     conf_mat = np.zeros((num_classes,num_classes))
 
@@ -88,15 +89,14 @@ def run_models(X, Y, T, models, thresh, num_classes = 3,
         else:
             result = 'Incorrect'
         
-        if plot_graphs:
-            plot_probability(new_T, probs, legend, title, result, count_text)
-        else:
-            #print(title)
-            pass
+        full_img_name = '{}_Series_{}.png'.format(img_name, ii)
+        plot_probability(new_T, probs, legend, title, result, count_text, full_img_name, plot_graphs)
+
         conf_mat[label, pred_label] += 1
         
-    if plot_confusions:
-        plot_confusion_matrix(conf_mat, num_classes, legend, name)
+    full_img_name = '{}_Confusion.png'.format(img_name, ii)
+    plot_confusion_matrix(conf_mat, num_classes, legend, name, full_img_name, plot_confusions)
+    
     fpr, tpr, acc = get_metrics(conf_mat, num_classes)
     
     return fpr, tpr, acc

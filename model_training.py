@@ -1,6 +1,8 @@
 from sklearn.svm import SVC
 from joblib import dump, load
 import numpy as np
+from multiprocessing import Pool, TimeoutError
+import os
 
 def get_training_split(X, Y1, Y2, T, k=4, random = False):
     
@@ -28,25 +30,25 @@ def get_training_split(X, Y1, Y2, T, k=4, random = False):
     
     return train_ind, test_ind
 
-def fit_model(train_X, train_Y, train_T, start_val, end_val, filename, \
-              num_classes):
-    
+def fit_model(params):
+    train_X, train_Y, train_T, start_val, end_val, filename, num_classes = params
+
     X = []
     Y = []
-    
+       
     for ii in range(len(train_X)):
         start_ind = np.where(train_T[ii] >= start_val)[0]
         if end_val == -1:
             end_ind = np.where(train_T[ii] < train_T[ii][-1])[0]
         else:
             end_ind = np.where(train_T[ii] < end_val)[0]
-        if start_ind.shape[0] > 0 and end_ind.shape[0] > 0:    
+        if start_ind.shape[0] > 0 and end_ind.shape[0] > 0:
             X.append(train_X[ii][start_ind[0]:end_ind[-1],:])
             Y.append(train_Y[ii][start_ind[0]:end_ind[-1]])
     
     flat_train_X = np.vstack(X)
     flat_train_Y = np.vstack(Y).flatten()
-    
+
     class_weight= {}
     for ii in range(num_classes):
         class_weight[ii] = 0.0
@@ -62,9 +64,32 @@ def fit_model(train_X, train_Y, train_T, start_val, end_val, filename, \
     
     dump(model, 'models/' + filename)
     
-    return model
-
+    return None
 
 def load_model(filename):
     model = load('models/' + filename)
     return model
+
+def create_all_models(model_split, k, class_num_arr, num_workers, X, Ys, T, train_inds, test_inds):
+
+    pool = Pool(processes=num_workers)
+    
+    param_vec = []
+    for model_ind in range(len(model_split)):
+        for fold_ind in range(len(train_inds)):
+            for model_start_ind in range(len(model_split[model_ind])-1):
+                start_val = model_split[model_ind][model_start_ind]
+                end_val = model_split[model_ind][model_start_ind+1]
+                model_name = 'Model_{}_Start_{}_End_{}_Fold_{}.joblib'.format(model_ind, 
+                                    start_val, end_val, fold_ind)
+
+                if not model_name in os.listdir('models'):
+                    params = (X[train_inds[fold_ind]], 
+                              Ys[model_ind][train_inds[fold_ind]],
+                              T[train_inds[fold_ind]],
+                              start_val, end_val, model_name, 
+                              class_num_arr[model_ind])
+                    param_vec.append(params)
+                
+    print('Number of models {}'.format(len(param_vec)))
+    pool.map(fit_model, param_vec)
