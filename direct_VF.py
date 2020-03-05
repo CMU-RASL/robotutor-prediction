@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import helpers as hp
+import read_data as rd
 
 def get_picture_side(video_filename):
     cap = cv2.VideoCapture(video_filename) #video name
@@ -56,9 +57,18 @@ def feedBackType(frame):
 def generateData(video_filename):
     cap = cv2.VideoCapture(video_filename) #video name
 
-    f = open('tempData/picture_side/'+video_filename[-6:-4]+'.txt')
+    f = open('data/picture_sides/'+video_filename[-6:-4]+'_picture_sides.txt')
     all_sides = f.readlines()
     f.close()
+    all_sides = all_sides[1:]
+    for i in range(len(all_sides)):
+        if all_sides[i].strip() == "left":
+            all_sides[i] = 0
+        elif all_sides[i].strip() == "right":
+            all_sides[i] = 1
+        else:
+            print(all_sides[i])
+            error()
 
     headers = ""
     all_openface = []
@@ -91,6 +101,7 @@ def generateData(video_filename):
     lines = []
     carry = 0
     record = False #not all screens useful
+    frac_change = False
 
     while(cap.isOpened()):
         # Capture frame-by-frame
@@ -122,12 +133,28 @@ def generateData(video_filename):
 
         frame_count += 1
         times.append(frame_count/fps)
-        openface.append(all_openface[totalframe_count-1])
-        picture_sides.append(all_sides[totalframe_count-1])
-        frac = hp.get_read_fraction(frame, picture_sides[len(picture_sides)-1])
-        lines.append(frac+carry)
+        if totalframe_count-1 < len(all_openface):
+            openface.append(all_openface[totalframe_count-1])
+        else:
+            print("not enough open face features, aborting rest of video")
+            break
+        if totalframe_count-1 < len(all_sides):
+            picture_sides.append(all_sides[totalframe_count-1])
+        else:
+            print("picture side file too small")
+            picture_sides.append(hp.get_picture_side(frame))
+        frac = round(hp.get_read_fraction(frame, picture_sides[len(picture_sides)-1]), 2)
         if frac == 1:
+            frac_change = True
+        if frac != 1 and frac_change:
+            frac_change = False
             carry += 1
+        nextFrac = frac+carry
+        if len(lines) == 0 or nextFrac >= lines[len(lines)-1]:
+            lines.append(nextFrac)
+        else:
+            lines.append(lines[len(lines)-1])
+
 
         # if activity_start == False: #activity ended
         #     createFeatures(video_filename, activityname_name, feedBack_num, allfeedBack[len(allfeedBack)-1], times)
@@ -206,6 +233,10 @@ def test():
 
 def main():
     video_filenames = os.listdir('data/video')
-    generateData("data/video/01.mp4")
+    for vf in video_filenames:
+        if vf == "01.mp4" or vf == "02.mp4" or vf == ".DS_Store":
+            continue
+        print("starting video " + vf)
+        generateData("data/video/"+vf)
 
 main()
