@@ -3,12 +3,8 @@
 *.png
 *.mp4
 *.json
-dataset1/vidfeature/*.txt
-dataset1/picture_sides/*.txt
-dataset1/context/*.txt
-dataset1/allfeature/*.txt
-dataset1/*.txt
-dataset2/*
+dataset1/
+dataset2/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
