@@ -54,9 +54,21 @@ def feedBackType(frame):
         return -1
     return None
 
+def check_path(video_filename):
+    picture = os.path.exists('data/picture_sides/'+video_filename[-6:-4]+'_picture_sides.txt')
+    openface = os.path.exists('data/openface/' + video_filename[-6:-4]+'_crop.csv')
+    if picture and openface:
+        return True
+    return False
+
 def generateData(video_filename):
+    if not check_path(video_filename):
+        print("missing picture or openface file")
+        return
+
     cap = cv2.VideoCapture(video_filename) #video name
 
+    #use try and except here
     f = open('data/picture_sides/'+video_filename[-6:-4]+'_picture_sides.txt')
     all_sides = f.readlines()
     f.close()
@@ -80,13 +92,7 @@ def generateData(video_filename):
                else:
                    all_openface.append(hp.get_openface_features(headers, line))
 
-    #is this the length of the video?
-    length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    seenGray = False
     fps = cap.get(cv2.CAP_PROP_FPS)
-    start = []
-    end = []
-    num = 1
 
     feedBack_num = 0
     seenfeedBack = False
@@ -154,18 +160,6 @@ def generateData(video_filename):
                 lines.append(nextFrac)
             else:
                 lines.append(lines[len(lines)-1])
-
-
-        # if activity_start == False: #activity ended
-        #     createFeatures(video_filename, activityname_name, feedBack_num, allfeedBack[len(allfeedBack)-1], times)
-
-        # height, width, channels = frame.shape
-        # yellow = frame[height // 2 - 10 : height // 2 + 10, width // 4 - 25 : width // 4 + 25]
-        # green = frame[height // 5 - 10 : height // 5 + 10, width // 4 - 25 : width // 4 + 25]
-        # red = frame[4*height // 5 - 10 : 4*height // 5 + 10, width // 4 - 25 : width // 4 + 25]
-
-        # snap = frame[height//2 - 50 : height//2 + 50,
-        #                   width // 2 - 100 : width // 2 + 100,:]
 
         fb = feedBackType(frame)
         if fb != None and not seenfeedBack and record:
