@@ -90,7 +90,6 @@ def generateData(video_filename):
 
     feedBack_num = 0
     seenfeedBack = False
-    allfeedBack = []
     activity_start = False #true means activity has started ans false means ended
     frame_count = 0
     totalframe_count = 0 #use this to extract precomputed data
@@ -100,8 +99,8 @@ def generateData(video_filename):
     picture_sides = []
     lines = []
     carry = 0
-    record = False #not all screens useful
     frac_change = False
+    record = False #skips useless frames
 
     while(cap.isOpened()):
         # Capture frame-by-frame
@@ -112,48 +111,49 @@ def generateData(video_filename):
 
         totalframe_count += 1
 
-        if activity_name == "":
+        if not record and not seenfeedBack: #finished with feedback screen
             activity = hp.get_activity_type(frame)
-            if activity != 'n/a' and not activity_start:
-                activity_start = True
+            if activity != 'n/a':
                 activity_name = activity
-        else:
-            if activity_start: #activity starting
-                print("activity started")
+            elif activity_name != "": #activity name found and activity starting
+                activity_start = True
                 record = True
-                #reset all variables
-                frame_count = 0
-                times = []
-                picture_sides = []
-                carry = 0
-                lines = []
-                openface = []
-            activity_start = False
-        if not record: continue
 
-        frame_count += 1
-        times.append(frame_count/fps)
-        if totalframe_count-1 < len(all_openface):
-            openface.append(all_openface[totalframe_count-1])
-        else:
-            print("not enough open face features, aborting rest of video")
-            break
-        if totalframe_count-1 < len(all_sides):
-            picture_sides.append(all_sides[totalframe_count-1])
-        else:
-            print("picture side file too small")
-            picture_sides.append(hp.get_picture_side(frame))
-        frac = round(hp.get_read_fraction(frame, picture_sides[len(picture_sides)-1]), 2)
-        if frac == 1:
-            frac_change = True
-        if frac != 1 and frac_change:
-            frac_change = False
-            carry += 1
-        nextFrac = frac+carry
-        if len(lines) == 0 or nextFrac >= lines[len(lines)-1]:
-            lines.append(nextFrac)
-        else:
-            lines.append(lines[len(lines)-1])
+        if activity_start: #activity starting
+            print("activity started")
+            #reset all variables
+            frame_count = 0
+            times = []
+            picture_sides = []
+            carry = 0
+            lines = []
+            openface = []
+            activity_start = False
+
+        if record:  #useful frames
+            frame_count += 1
+            times.append(frame_count/fps)
+            if totalframe_count-1 < len(all_openface):
+                openface.append(all_openface[totalframe_count-1])
+            else:
+                print("not enough open face features, aborting rest of video")
+                break
+            if totalframe_count-1 < len(all_sides):
+                picture_sides.append(all_sides[totalframe_count-1])
+            else:
+                print("picture side file too small")
+                picture_sides.append(hp.get_picture_side(frame))
+            frac = round(hp.get_read_fraction(frame, picture_sides[len(picture_sides)-1]), 2)
+            if frac == 1:
+                frac_change = True
+            if frac != 1 and frac_change:
+                frac_change = False
+                carry += 1
+            nextFrac = frac+carry
+            if len(lines) == 0 or nextFrac >= lines[len(lines)-1]:
+                lines.append(nextFrac)
+            else:
+                lines.append(lines[len(lines)-1])
 
 
         # if activity_start == False: #activity ended
@@ -168,39 +168,15 @@ def generateData(video_filename):
         #                   width // 2 - 100 : width // 2 + 100,:]
 
         fb = feedBackType(frame)
-        if fb != None and not seenfeedBack:
-            if fb != None:
-                print("feedback", fb)
-                allfeedBack.append(fb)
-                feedBack_num += 1
-                seenfeedBack = True
-                #cv2.imwrite('tempData/activity_time/feedBack'+str(feedBack_num)+'.jpg', frame)
-                createFeatures(video_filename, activity_name, feedBack_num, fb, times, openface, lines, picture_sides)
-                record = False
-                activity_name = ""
-        elif fb == None:
+        if fb != None and not seenfeedBack and record:
+            print("feedback", fb)
+            feedBack_num += 1
+            seenfeedBack = True
+            createFeatures(video_filename, activity_name, feedBack_num, fb, times, openface, lines, picture_sides)
+            activity_name = ""
+            record = False
+        elif fb == None and seenfeedBack:
             seenfeedBack = False
-
-
-
-        '''
-        colors, count = np.unique(snap.reshape(-1,snap.shape[-1]),
-                                  axis=0, return_counts=True)
-
-        if not seenGray and len(colors) == 1 and np.array_equal(colors[0], [136,136,136]) :
-            seenGray = True
-            start.append(cap.get(cv2.CAP_PROP_POS_FRAMES)/fps)
-            #print("start", cap.get(cv2.CAP_PROP_POS_FRAMES)/fps)
-            #print("start", cap.get(cv2.CAP_PROP_POS_MSEC))
-            #cv2.imwrite('data/activity_time/frame1.jpg', frame)
-
-        elif seenGray == True and len(colors) != 1:
-            seenGray = False
-            end.append(cap.get(cv2.CAP_PROP_POS_FRAMES)/fps)
-            cv2.imwrite('tempData/activity_time/frame' + str(num) +'.jpg', frame)
-            print("end", cap.get(cv2.CAP_PROP_POS_MSEC))
-            num += 1
-        '''
     # When everything done, release the capture
 
     cap.release()
@@ -211,32 +187,18 @@ def createFeatures(video_filename, activity_name, activity_ind, feedBack, times,
     states = ["temp"]*len(times)
     o1,o2,o3,o4,o5 = [item[1] for item in openface], [item[2] for item in openface], [item[3] for item in openface], [item[4] for item in openface], [item[5] for item in openface]
     rows = zip(times,states, o1, o2, o3, o4, o5, lines, picture_sides)
-    with open('tempData/features/'+ video_filename[-6:-4] + '_'+str(activity_ind)+'_' + activity_name + '.csv', 'w') as f:
+    with open('tempData/compare/'+ video_filename[-6:-4] + '_'+str(activity_ind)+'_' + activity_name + '.csv', 'w') as f:
         writer = csv.writer(f)
         writer.writerow(["Video Filename", int(video_filename[-6:-4]), "Activity Int", activity_ind, "Activity Name", activity_name, "Feedback", feedBack, "Backbutton", "Unknown"])
         writer.writerow(["Time", "State", "Head Proximity", "Head Orientation", "Gaze Direction", "Eye Aspect Ratio", "Pupil Ratio", "Lines", "Picture Side"])
         for row in rows:
             writer.writerow(row)
 
-def test():
-    x = [1,2,3]
-    y = [("bob","aoa"),("hi","bye"),("ding","honk")]
-    l1, l2 = [item[0] for item in y], [item[1] for item in y]
-    print(l1)
-    print(l2)
-    # rows = zip(x,z)
-    # rows = zip(rows, x)
-    # with open('tempData/test.csv', 'w') as f:
-    #     writer = csv.writer(f)
-    #     for row in rows:
-    #         writer.writerow(row)
-
 def main():
     video_filenames = os.listdir('data/video')
     for vf in video_filenames:
-        if vf == "01.mp4" or vf == "02.mp4" or vf == ".DS_Store":
-            continue
-        print("starting video " + vf)
-        generateData("data/video/"+vf)
+        if vf == "01.mp4":
+            print("starting video " + vf)
+            generateData("data/video/"+vf)
 
 main()
