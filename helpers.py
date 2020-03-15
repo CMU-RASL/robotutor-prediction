@@ -161,7 +161,7 @@ def get_activity_type(frame):
     wind = frame[475: 675, 0: 500, :]
 
     crop_image = wind[20:40,200:270,:]
-#    scipy.misc.imsave('templates/story_read.png',crop_image)
+    #cv2.imwrite('templates/activities/story_read.png',crop_image)
     gray = cv2.cvtColor(crop_image, cv2.COLOR_BGR2GRAY)
 
     activity_names = []

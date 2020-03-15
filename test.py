@@ -1,3 +1,7 @@
+import helpers as hp
+import cv2
+
+
 def compareFiles(video_filename):
     f = open('tempData/picture_side/' + video_filename[-6:-4] +'.txt')
     first = f.readlines()
@@ -14,4 +18,19 @@ def compareFiles(video_filename):
             return False
     return True
 
-print(compareFiles("data/video/18.mp4"))
+def saveFrame(video_filename):
+    cap = cv2.VideoCapture(video_filename) #video name
+    while(cap.isOpened()):
+        # Capture frame-by-frame
+        ret, frame = cap.read()
+
+        if not ret:
+            break
+        hp.get_activity_type(frame)
+        break
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+#print(compareFiles("data/video/18.mp4"))
+saveFrame('tempData/storyread.mp4')
