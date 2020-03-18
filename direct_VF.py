@@ -5,11 +5,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import helpers as hp
-import read_data as rd
 
 def get_picture_side(video_filename):
     cap = cv2.VideoCapture(video_filename) #video name
-    f = open('tempData/picture_side/' + video_filename[-6:-4] +'.txt', 'w+')
+    f = open('data/picture_sides/' + video_filename[:-4] +'_picture_sides.txt', 'w+')
     while(cap.isOpened()):
         # Capture frame-by-frame
         ret, frame = cap.read()
@@ -19,7 +18,6 @@ def get_picture_side(video_filename):
     cap.release()
     cv2.destroyAllWindows()
     f.close()
-
 
 def feedBackScreen(yellow,green,red):
     yc, ycount = np.unique(yellow.reshape(-1,yellow.shape[-1]),
@@ -55,8 +53,8 @@ def feedBackType(frame):
     return None
 
 def check_path(video_filename):
-    picture = os.path.exists('data/picture_sides/'+video_filename[-6:-4]+'_picture_sides.txt')
-    openface = os.path.exists('data/openface/' + video_filename[-6:-4]+'_crop.csv')
+    picture = os.path.exists('data/picture_sides/'+video_filename[:-4]+'_picture_sides.txt')
+    openface = os.path.exists('data/openface/' + video_filename[:-4]+'_crop.csv')
     if picture and openface:
         return True
     return False
@@ -69,7 +67,7 @@ def generateData(video_filename):
     cap = cv2.VideoCapture(video_filename) #video name
 
     #use try and except here
-    f = open('data/picture_sides/'+video_filename[-6:-4]+'_picture_sides.txt')
+    f = open('data/picture_sides/'+video_filename[:-4]+'_picture_sides.txt')
     all_sides = f.readlines()
     f.close()
     all_sides = all_sides[1:]
@@ -84,7 +82,7 @@ def generateData(video_filename):
 
     headers = ""
     all_openface = []
-    with open('data/openface/' + video_filename[-6:-4]+'_crop.csv', mode='r') as csv_file:
+    with open('data/openface/' + video_filename[:-4]+'.csv', mode='r') as csv_file:
            csv_reader = csv.reader(csv_file, delimiter=',')
            for ii, line in enumerate(csv_reader):
                if ii == 0:
@@ -181,9 +179,9 @@ def createFeatures(video_filename, activity_name, activity_ind, feedBack, times,
     states = ["temp"]*len(times)
     o1,o2,o3,o4,o5 = [item[1] for item in openface], [item[2] for item in openface], [item[3] for item in openface], [item[4] for item in openface], [item[5] for item in openface]
     rows = zip(times,states, o1, o2, o3, o4, o5, lines, picture_sides)
-    with open('tempData/compare/'+ video_filename[-6:-4] + '_'+str(activity_ind)+'_' + activity_name + '.csv', 'w') as f:
+    with open('tempData/features2/'+ video_filename[:-4] + '_'+str(activity_ind)+'_' + activity_name + '.csv', 'w') as f:
         writer = csv.writer(f)
-        writer.writerow(["Video Filename", int(video_filename[-6:-4]), "Activity Int", activity_ind, "Activity Name", activity_name, "Feedback", feedBack, "Backbutton", "Unknown"])
+        writer.writerow(["Video Filename", int(video_filename[:-4]), "Activity Int", activity_ind, "Activity Name", activity_name, "Feedback", feedBack, "Backbutton", "Unknown"])
         writer.writerow(["Time", "State", "Head Proximity", "Head Orientation", "Gaze Direction", "Eye Aspect Ratio", "Pupil Ratio", "Lines", "Picture Side"])
         for row in rows:
             writer.writerow(row)
@@ -191,8 +189,10 @@ def createFeatures(video_filename, activity_name, activity_ind, feedBack, times,
 def main():
     video_filenames = os.listdir('data/video')
     for vf in video_filenames:
-        if vf == "01.mp4":
-            print("starting video " + vf)
-            generateData("data/video/"+vf)
+        print(vf[:-4])
+    #     if vf == "01.mp4":
+    #         continue
+    #     print("starting video " + vf)
+    #     generateData("data/video/"+vf)
 
 main()

@@ -1,6 +1,6 @@
 import helpers as hp
 import cv2
-
+import sys
 
 def compareFiles(video_filename):
     f = open('tempData/picture_side/' + video_filename[-6:-4] +'.txt')
@@ -33,4 +33,4 @@ def saveFrame(video_filename):
 
 
 #print(compareFiles("data/video/18.mp4"))
-saveFrame('tempData/storyread.mp4')
+print(sys.argv)
