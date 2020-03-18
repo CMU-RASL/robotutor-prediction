@@ -3,8 +3,12 @@
 *.png
 *.mp4
 *.json
-dataset1/
-dataset2/
+*.pkl
+*.npz
+dataset*/
+plot_*/
+model_*/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

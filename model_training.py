@@ -1,42 +1,41 @@
 from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
 from joblib import dump, load
 import numpy as np
-from multiprocessing import Pool, TimeoutError
+from multiprocessing import Pool
 import os
 
-def get_training_split(X, Y1, Y2, T, k=4, random = False):
+def get_training_split(num_series, k=4, perc=0.8, cross_bool=False):
+    np.random.seed(0)
+    inds = np.arange(num_series)
+    np.random.shuffle(inds)
 
-    num_series = len(X)
-    if num_series == 83:
-        inds = [43, 82, 71, 35, 23, 38 ,65 ,53, 59 ,77 ,68, 37, 58, 31 ,21 ,22 ,69 ,76 ,41 ,25 ,14, 10 ,18 , 5,
-        50, 29 ,78 , 6 , 9 , 0 ,30 ,81 ,15 ,80 ,32 ,47 ,49, 72, 39 ,16 ,34 ,40 ,19, 66 ,62 ,54 ,42 , 7,
-        64,  3, 33 , 8 , 2 ,12 ,75, 17, 36 ,55 ,51 , 1 ,13, 44 ,52 ,20 ,74 ,67 ,46, 79 ,60 ,45 ,73 ,61,
-        70, 57 ,48 , 4 ,27, 11, 26, 63, 56, 24 ,28]
+    if cross_bool:
+        group_size = np.ceil(num_series/k).astype('int')
+        group_inds = []
+        for ii, ki in enumerate(range(k)):
+            group_inds.append(inds[ii*group_size:min(ii*group_size+group_size,num_series)])
+
+        train_ind = []
+        test_ind = []
+        for ii in range(k):
+            tmp_inds = []
+            for jj in range(k):
+                if ii == jj:
+                    test_ind.append(group_inds[ii])
+                else:
+                    tmp_inds.extend(group_inds[jj])
+            train_ind.append(tmp_inds)
     else:
-        inds = [3, 36, 21, 14, 35,  6,  4,  8, 16, 15, 24,  2,  9, 31,
-                37, 18, 26, 13,  5, 11, 17, 28,  0,  1, 34, 32, 30, 25,
-                12, 20, 33, 19, 10,  7, 29, 27, 23, 22]
-
-    group_size = np.ceil(num_series/k).astype('int')
-    group_inds = []
-    for ii, ki in enumerate(range(k)):
-        group_inds.append(inds[ii*group_size:min(ii*group_size+group_size,num_series)])
-
-    train_ind = []
-    test_ind = []
-    for ii in range(k):
-        tmp_inds = []
-        for jj in range(k):
-            if ii == jj:
-                test_ind.append(group_inds[ii])
-            else:
-                tmp_inds.extend(group_inds[jj])
-        train_ind.append(tmp_inds)
+        train_split = np.floor(perc*num_series).astype('int')
+        train_ind = [np.arange(train_split)]
+        test_ind = [np.arange(train_split,num_series)]
 
     return train_ind, test_ind
 
 def fit_model(params):
-    train_X, train_Y, train_T, start_val, end_val, filename, num_classes, foldername = params
+    train_X, train_Y, train_T, start_val, end_val, filename, num_classes, foldername, model_type = params
 
     X = []
     Y = []
@@ -74,7 +73,13 @@ def fit_model(params):
         for label, weight in zip(unique_elements, weights):
             class_weight[label] = weight
 
-        model = SVC(probability=True, gamma='auto', class_weight=class_weight)
+        if model_type == 'SVC':
+            model = SVC(probability=True, gamma='auto', class_weight=class_weight)
+        if model_type == 'RandomForest':
+            model = RandomForestClassifier(class_weight=class_weight)
+        if model_type == 'DecisionTree':
+            model = DecisionTreeClassifier(class_weight=class_weight)
+
         model.fit(flat_train_X, flat_train_Y)
 
         dump(model, foldername + '//' + filename)
@@ -84,10 +89,10 @@ def load_model(filename, foldername):
     model = load(foldername + '//' + filename)
     return model
 
-def create_all_models(foldername, model_split, k, class_num_arr, num_workers, X, Ys, T, train_inds, test_inds):
+def create_all_models(foldername, model_split, k, cross_bool, class_num_arr,
+    num_workers, X, Ys, T, train_inds, test_inds, model_type):
 
     pool = Pool(processes=num_workers)
-
     param_vec = []
     for model_ind in range(len(model_split)):
         for fold_ind in range(len(train_inds)):
@@ -102,7 +107,7 @@ def create_all_models(foldername, model_split, k, class_num_arr, num_workers, X,
                               Ys[model_ind][train_inds[fold_ind]],
                               T[train_inds[fold_ind]],
                               start_val, end_val, model_name,
-                              class_num_arr[model_ind], foldername)
+                              class_num_arr[model_ind], foldername, model_type)
                     param_vec.append(params)
 
     print('Number of models {}'.format(len(param_vec)))

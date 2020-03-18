@@ -27,8 +27,7 @@ def plot_probability(t, prob, legend, title, result, count_text, filename, plot_
                                                    alpha=0.2, fc="k"))
     plt.tight_layout()
     if plot_bool:
-        plt.show()
-    plt.savefig(filename)
+        plt.savefig(filename)
     plt.close()
 
 def plot_confusion_matrix(conf_mat, num_classes, legend, name, filename, plot_bool):
@@ -53,13 +52,13 @@ def plot_confusion_matrix(conf_mat, num_classes, legend, name, filename, plot_bo
                      ha='center', color=cmap(1-norm_conf_mat[ii,jj]),
                      fontsize=24)
     plt.tight_layout()
-    if plot_bool:
-        plt.show()
+
     if 'prob_train' in filename:
         filename = filename.replace('prob_train', 'confusion')
     if 'prob_test' in filename:
-            filename = filename.replace('prob_test', 'confusion')
-    plt.savefig(filename)
+        filename = filename.replace('prob_test', 'confusion')
+    if plot_bool:
+        plt.savefig(filename)
     plt.close()
 
 def plot_rocs(fprs, tprs, thresh_arr, name, filename, plot_bool):
@@ -97,8 +96,7 @@ def plot_rocs(fprs, tprs, thresh_arr, name, filename, plot_bool):
         ax.legend(legend)
 
     if plot_bool:
-        plt.show()
-    plt.savefig("{}_roc.png".format(filename))
+        plt.savefig("{}_roc.png".format(filename))
     plt.close()
 
 def plot_accuracies(acc, thresh_arr,name, filename, plot_bool):
@@ -135,6 +133,5 @@ def plot_accuracies(acc, thresh_arr,name, filename, plot_bool):
         ax.legend(legend)
 
     if plot_bool:
-        plt.show()
-    plt.savefig("{}_acc.png".format(filename))
+        plt.savefig("{}_acc.png".format(filename))
     plt.close()

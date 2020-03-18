@@ -82,5 +82,6 @@ def main():
     print(headers)
     np.savez(npz_name, X=X, Y1=Y1, Y2=Y2, T=T)
     print('Saved to {}'.format(npz_name))
+
 if __name__ == '__main__':
     main()
