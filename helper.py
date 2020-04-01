@@ -1,11 +1,18 @@
 import numpy as np
 import os
 import cv2
-import os
 
 def remove_readonly(func, path, excinfo):
     os.chmod(path, stat.S_IWRITE)
     func(path)
+
+def legend_from_ind(num_classes):
+    if num_classes == 2:
+        legend = ['Completed', 'Bailed']
+    else:
+        legend = ['Negative', 'Neutral', 'Positive']
+    return legend
+
 
 def class_name_from_ind(ind, num_classes):
     if num_classes == 2:
@@ -44,7 +51,7 @@ def get_metrics(conf_mat, num_classes):
         fn = conf_mat[cur_class,not_cur_class].astype('float')
         tpr = tp/(tp + fn + 1e-6)
         fpr = fp/(fp + tn + 1e-6)
-        acc = (tp + tn)/(tp + tn + fp + fn)
+        acc = (tp + tn)/(tp + tn + fp + fn + 1e-6)
 
     else:
         tpr = np.empty(3)
@@ -59,7 +66,7 @@ def get_metrics(conf_mat, num_classes):
             fn = np.sum(conf_mat[cur_class,not_cur_class]).astype('float')
             tpr[cur_class] = tp/(tp + fn + 1e-6)
             fpr[cur_class] = fp/(fp + tn + 1e-6)
-            acc[cur_class] = (tp + tn)/(tp + tn + fp + fn)
+            acc[cur_class] = (tp + tn)/(tp + tn + fp + fn + 1e-6)
 
     return fpr, tpr, acc
 

@@ -4,7 +4,7 @@ from sklearn.tree import DecisionTreeClassifier
 from joblib import dump, load
 import numpy as np
 from multiprocessing import Pool
-import os
+from os import listdir
 
 def get_training_split(num_series, k=4, perc=0.8, cross_bool=False):
     np.random.seed(0)
@@ -15,7 +15,8 @@ def get_training_split(num_series, k=4, perc=0.8, cross_bool=False):
         group_size = np.ceil(num_series/k).astype('int')
         group_inds = []
         for ii, ki in enumerate(range(k)):
-            group_inds.append(inds[ii*group_size:min(ii*group_size+group_size,num_series)])
+            group_inds.append(inds[ii*group_size:min(ii*group_size+group_size,
+                    num_series)])
 
         train_ind = []
         test_ind = []
@@ -35,7 +36,8 @@ def get_training_split(num_series, k=4, perc=0.8, cross_bool=False):
     return train_ind, test_ind
 
 def fit_model(params):
-    train_X, train_Y, train_T, start_val, end_val, filename, num_classes, foldername, model_type = params
+    train_X, train_Y, train_T, start_val, end_val, filename, num_classes, \
+            foldername, model_type, max_depth = params
 
     X = []
     Y = []
@@ -74,23 +76,25 @@ def fit_model(params):
             class_weight[label] = weight
 
         if model_type == 'SVC':
-            model = SVC(probability=True, gamma='auto', class_weight=class_weight)
+            model = SVC(probability=True, gamma='auto',
+                    class_weight=class_weight)
         if model_type == 'RandomForest':
-            model = RandomForestClassifier(class_weight=class_weight)
+            model = RandomForestClassifier(class_weight=class_weight,
+                    max_depth=max_depth)
         if model_type == 'DecisionTree':
             model = DecisionTreeClassifier(class_weight=class_weight)
 
         model.fit(flat_train_X, flat_train_Y)
 
         dump(model, foldername + '//' + filename)
-        print('Fit', filename)
+        print('\t Fit', filename)
 
 def load_model(filename, foldername):
     model = load(foldername + '//' + filename)
     return model
 
 def create_all_models(foldername, model_split, k, cross_bool, class_num_arr,
-    num_workers, X, Ys, T, train_inds, test_inds, model_type):
+    num_workers, X, Ys, T, train_inds, test_inds, model_type, max_depth):
 
     pool = Pool(processes=num_workers)
     param_vec = []
@@ -99,15 +103,16 @@ def create_all_models(foldername, model_split, k, cross_bool, class_num_arr,
             for model_start_ind in range(len(model_split[model_ind])-1):
                 start_val = model_split[model_ind][model_start_ind]
                 end_val = model_split[model_ind][model_start_ind+1]
-                model_name = 'Model_{}_Start_{}_End_{}_Fold_{}.joblib'.format(model_ind,
-                                    start_val, end_val, fold_ind)
+                model_name = 'Model_{}_Start_{}_End_{}_Fold_{}.joblib'.format(
+                        model_ind,start_val, end_val, fold_ind)
 
-                if not model_name in os.listdir(foldername):
+                if not model_name in listdir(foldername):
                     params = (X[train_inds[fold_ind]],
                               Ys[model_ind][train_inds[fold_ind]],
                               T[train_inds[fold_ind]],
                               start_val, end_val, model_name,
-                              class_num_arr[model_ind], foldername, model_type)
+                              class_num_arr[model_ind], foldername, model_type,
+                              max_depth)
                     param_vec.append(params)
 
     print('Number of models {}'.format(len(param_vec)))
