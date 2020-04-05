@@ -132,3 +132,4 @@ data/
 tempData/
 .DS_Store
 *.mp4
+*.csv
