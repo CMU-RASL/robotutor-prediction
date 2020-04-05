@@ -5,9 +5,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import helpers as hp
+import sys
 
 def get_picture_side(video_filename):
-    cap = cv2.VideoCapture(video_filename) #video name
+    print(video_filename)
+    cap = cv2.VideoCapture('data/video/'+video_filename) #video name
+    count = 1
     f = open('data/picture_sides/' + video_filename[:-4] +'_picture_sides.txt', 'w+')
     while(cap.isOpened()):
         # Capture frame-by-frame
@@ -15,6 +18,10 @@ def get_picture_side(video_filename):
         if not ret:
             break
         f.write(str(hp.get_picture_side(frame))+"\n")
+        count += 1
+        if count >= 1000:
+          count = 1
+          f.flush()
     cap.release()
     cv2.destroyAllWindows()
     f.close()
@@ -53,8 +60,8 @@ def feedBackType(frame):
     return None
 
 def check_path(video_filename):
-    picture = os.path.exists('data/picture_sides/'+video_filename[:-4]+'_picture_sides.txt')
-    openface = os.path.exists('data/openface/' + video_filename[:-4]+'_crop.csv')
+    picture = os.path.exists('data/picture_sides/'+video_filename[-6:-4]+'_picture_sides.txt')
+    openface = os.path.exists('data/openface/' + video_filename[-6:-4]+'_crop.csv')
     if picture and openface:
         return True
     return False
@@ -67,7 +74,7 @@ def generateData(video_filename):
     cap = cv2.VideoCapture(video_filename) #video name
 
     #use try and except here
-    f = open('data/picture_sides/'+video_filename[:-4]+'_picture_sides.txt')
+    f = open('data/picture_sides/'+video_filename[-6:-4]+'_picture_sides.txt')
     all_sides = f.readlines()
     f.close()
     all_sides = all_sides[1:]
@@ -82,7 +89,7 @@ def generateData(video_filename):
 
     headers = ""
     all_openface = []
-    with open('data/openface/' + video_filename[:-4]+'.csv', mode='r') as csv_file:
+    with open('data/openface/' + video_filename[-6:-4]+'_crop.csv', mode='r') as csv_file:
            csv_reader = csv.reader(csv_file, delimiter=',')
            for ii, line in enumerate(csv_reader):
                if ii == 0:
@@ -105,6 +112,9 @@ def generateData(video_filename):
     carry = 0
     frac_change = False
     record = False #skips useless frames
+    press = False #is backbutton being pressed
+    circlepic = None
+
 
     while(cap.isOpened()):
         # Capture frame-by-frame
@@ -124,7 +134,8 @@ def generateData(video_filename):
                 record = True
 
         if activity_start: #activity starting
-            print("activity started")
+            print("")
+            print("activity started", activity_name)
             #reset all variables
             frame_count = 0
             times = []
@@ -133,6 +144,13 @@ def generateData(video_filename):
             lines = []
             openface = []
             activity_start = False
+            backbutton = 0
+            press = False
+            circle = None
+            frac_change = False
+
+        if activity_name == "":
+            continue
 
         if record:  #useful frames
             frame_count += 1
@@ -159,40 +177,62 @@ def generateData(video_filename):
             else:
                 lines.append(lines[len(lines)-1])
 
+        if hp.backbutton_pressed(frame):
+            if not press:
+                # print("pressed", totalframe_count)
+                press = True
+                backbutton = totalframe_count
+                circle = frame
+            else:
+                backbutton = totalframe_count
+                circle = frame
+        else:
+            press = False
+
         fb = feedBackType(frame)
         if fb != None and not seenfeedBack and record:
-            print("feedback", fb)
+            if backbutton != 0 and totalframe_count-backbutton <= 300:
+                backbutton = 1
+            else:
+                # if backbutton != 0 and totalframe_count - backbutton > 300:
+                    # print("too big", totalframe_count-backbutton)
+                    # plt.imshow(circle)
+                    # plt.show()
+                backbutton = 0
+            print("backbutton", backbutton)
+
             feedBack_num += 1
             seenfeedBack = True
-            createFeatures(video_filename, activity_name, feedBack_num, fb, times, openface, lines, picture_sides)
-            activity_name = ""
+            createFeatures(video_filename, activity_name, feedBack_num, fb, times, openface, lines, picture_sides, backbutton)
             record = False
         elif fb == None and seenfeedBack:
             seenfeedBack = False
-    # When everything done, release the capture
+            activity_name = ""
 
+    # When everything done, release the capture
     cap.release()
     cv2.destroyAllWindows()
-    print(totalframe_count)
+    # print(totalframe_count)
 
-def createFeatures(video_filename, activity_name, activity_ind, feedBack, times, openface, lines, picture_sides):
+def createFeatures(video_filename, activity_name, activity_ind, feedBack, times, openface, lines, picture_sides, backbutton):
     states = ["temp"]*len(times)
-    o1,o2,o3,o4,o5 = [item[1] for item in openface], [item[2] for item in openface], [item[3] for item in openface], [item[4] for item in openface], [item[5] for item in openface]
-    rows = zip(times,states, o1, o2, o3, o4, o5, lines, picture_sides)
-    with open('tempData/features2/'+ video_filename[:-4] + '_'+str(activity_ind)+'_' + activity_name + '.csv', 'w') as f:
+    # o1,o2,o3,o4,o5,o6,o7 = [item[1] for item in openface], [item[2] for item in openface], [item[3] for item in openface], [item[4] for item in openface], [item[5] for item in openface], [item[6] for item in openface], [item[7] for item in openface]
+    # rows = zip(times,states, o1, o2, o3, o4, o5, o6, o7, lines, picture_sides)
+    with open('data/activities/'+ video_filename[-6:-4] + '_'+str(activity_ind)+'_' + activity_name + '.csv', 'w') as f:
         writer = csv.writer(f)
-        writer.writerow(["Video Filename", int(video_filename[:-4]), "Activity Int", activity_ind, "Activity Name", activity_name, "Feedback", feedBack, "Backbutton", "Unknown"])
-        writer.writerow(["Time", "State", "Head Proximity", "Head Orientation", "Gaze Direction", "Eye Aspect Ratio", "Pupil Ratio", "Lines", "Picture Side"])
-        for row in rows:
-            writer.writerow(row)
+        writer.writerow(["Video Filename", int(video_filename[-6:-4]), "Activity Int", activity_ind, "Activity Name", activity_name, "Feedback", feedBack, "Backbutton", backbutton])
+        writer.writerow(["Time", "State", "Head Proximity", "Head Orientation", "Gaze Direction", "Eye Aspect Ratio", "Pupil Ratio", "Confidence", "Success", "AU04", "AU07", "AU12", "AU25", "AU26", "AU45", "Lines", "Picture Side"])
+        for i in range(len (times)):
+            writer.writerow([times[i], states[i], openface[i][1], openface[i][2], openface[i][3], openface[i][4], openface[i][5], openface[i][6], openface[i][7], openface[i][8], openface[i][9], openface[i][10], openface[i][11],openface[i][12],openface[i][13],lines[i], picture_sides[i]])
 
-def main():
-    video_filenames = os.listdir('data/video')
-    for vf in video_filenames:
-        print(vf[:-4])
-    #     if vf == "01.mp4":
-    #         continue
-    #     print("starting video " + vf)
-    #     generateData("data/video/"+vf)
+def main(dir, video_filename):
+    if video_filename == "all":
+        video_filenames = os.listdir(dir)
+        for vf in video_filenames:
+            print("starting video " + vf)
+            generateData("data/old_video/"+vf)
+    else:
+        print("starting video " + video_filename)
+        generateData(dir+"/"+video_filename)
 
-main()
+main(sys.argv[1], sys.argv[2])

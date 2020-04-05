@@ -6,6 +6,7 @@ import csv
 import numpy.linalg
 import scipy.spatial.transform
 from skimage.measure import compare_ssim
+from skimage.metrics import structural_similarity
 import scipy.misc
 
 
@@ -61,6 +62,46 @@ def get_openface_features(headers, line):
     #Timestamp
     ind = headers.index('timestamp')
     sec = float(line[ind].rstrip().strip())
+
+    #confidence
+    ind = headers.index('confidence')
+    con = 0.0
+    if ind < len(line):
+        con = float(line[ind].rstrip().strip())
+
+    #success
+    ind = headers.index('success')
+    suc = 0.0
+    if ind < len(line):
+        suc = float(line[ind].rstrip().strip())
+
+    #_r columns
+    ind = headers.index('AU04_r')
+    if ind > len(line)-1:
+        r4 = 0.0
+    else:
+        r4 = float(line[ind].rstrip().strip())
+
+    ind = headers.index('AU07_r')
+    r7  = 0.0
+    if ind < len(line):
+        r7 = float(line[ind].rstrip().strip())
+    ind = headers.index('AU12_r')
+    r12 = 0.0
+    if ind < len(line):
+        r12 = float(line[ind].rstrip().strip())
+    ind = headers.index('AU25_r')
+    r25 = 0.0
+    if ind < len(line):
+        r25 = float(line[ind].rstrip().strip())
+    ind = headers.index('AU26_r')
+    r26 = 0.0
+    if ind < len(line):
+        r26 = float(line[ind].rstrip().strip())
+    ind = headers.index('AU45_r')
+    r45 = 0.0
+    if ind < len(line):
+        r45 = float(line[ind].rstrip().strip())
 
     #Head Prox
     head_prox_feat = ['pose_Tx', 'pose_Ty', 'pose_Tz']
@@ -152,7 +193,7 @@ def get_openface_features(headers, line):
 
     pupil_ratio = np.mean((Pr_left, Pr_right))
 
-    return sec, head_prox, head_orient, gaze_dir, eye_aspect_ratio, pupil_ratio
+    return sec, head_prox, head_orient, gaze_dir, eye_aspect_ratio, pupil_ratio, con, suc,r4,r7,r12,r25,r26,r45
 
 
 def get_activity_type(frame):
@@ -178,6 +219,31 @@ def get_activity_type(frame):
     else:
         activity_name = activity_names[np.argmax(ssims)]
         return activity_name
+
+def backbutton_pressed(frame):
+    wind = cv2.cvtColor(frame[10:70,10:100,:], cv2.COLOR_BGR2GRAY)
+    output = wind.copy()
+    blur = cv2.GaussianBlur(wind,(5,5),0);
+    circles = cv2.HoughCircles(wind,cv2.HOUGH_GRADIENT,1,100,
+                                param1=50,param2=22.5,minRadius=5,maxRadius=50)
+    unpressed_image = cv2.imread('templates/backbutton/not_pressed.png',cv2.IMREAD_GRAYSCALE)
+    ssim = structural_similarity(unpressed_image, wind)
+    if (not circles is None and ssim > 0.88 and ssim < 0.96):
+        radius = circles[0][0][2]
+        if (radius < 7.0 or radius > 10.9):
+            return False
+        # circles = np.round(circles[0, :]).astype("int")
+        # for (x, y, r) in circles:
+    	# 	# draw the circle in the output image, then draw a rectangle
+    	# 	# corresponding to the center of the circle
+    	#        cv2.circle(output, (x, y), r, (0, 255, 0), 4)
+    	#        cv2.rectangle(output, (x - 5, y - 5), (x + 5, y + 5), (0, 128, 255), -1)
+    	# # show the output image
+        # # cv2.imshow("output", np.hstack([wind, output]))
+        # # cv2.waitKey(0)
+        return True
+    return False
+
 
 def get_feedback(frame):
 
