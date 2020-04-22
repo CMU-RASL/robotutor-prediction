@@ -5,8 +5,9 @@ from joblib import dump, load
 import numpy as np
 from multiprocessing import Pool
 from os import listdir
+from helper import find_model_split
 
-def get_training_split(num_series, k=4, perc=0.8, cross_bool=False):
+def get_training_split(num_series, k=4, perc=0.8, cross_bool=True):
     np.random.seed(0)
     inds = np.arange(num_series)
     np.random.shuffle(inds)
@@ -93,27 +94,36 @@ def load_model(filename, foldername):
     model = load(foldername + '//' + filename)
     return model
 
-def create_all_models(foldername, model_split, k, cross_bool, class_num_arr,
-    num_workers, X, Ys, T, train_inds, test_inds, model_type, max_depth):
+def create_all_models(foldername, num_models, k, class_num_arr,
+    num_workers, X, Ys, T, train_inds, test_inds, model_bool, model_type='RandomForest',
+    max_depth=100):
 
-    pool = Pool(processes=num_workers)
-    param_vec = []
+    model_split = [np.empty((len(train_inds), num_models+1)),np.empty((len(train_inds), num_models+1))]
     for model_ind in range(len(model_split)):
         for fold_ind in range(len(train_inds)):
-            for model_start_ind in range(len(model_split[model_ind])-1):
-                start_val = model_split[model_ind][model_start_ind]
-                end_val = model_split[model_ind][model_start_ind+1]
-                model_name = 'Model_{}_Start_{}_End_{}_Fold_{}.joblib'.format(
-                        model_ind,start_val, end_val, fold_ind)
+            split = find_model_split([T[ii] for ii in train_inds[fold_ind] ], num_models)
+            model_split[model_ind][fold_ind, :] = split
 
-                if not model_name in listdir(foldername):
-                    params = (X[train_inds[fold_ind]],
-                              Ys[model_ind][train_inds[fold_ind]],
-                              T[train_inds[fold_ind]],
-                              start_val, end_val, model_name,
-                              class_num_arr[model_ind], foldername, model_type,
-                              max_depth)
-                    param_vec.append(params)
+    if model_bool:
+        param_vec = []
+        for model_ind in range(len(model_split)):
+            for fold_ind in range(len(train_inds)):
+                for model_start_ind in range(num_models):
+                    start_val = model_split[model_ind][fold_ind, model_start_ind]
+                    end_val = model_split[model_ind][fold_ind, model_start_ind+1]
+                    model_name = 'Model_{}_Start_{}_End_{}_Fold_{}.joblib'.format(
+                            model_ind,start_val, end_val, fold_ind)
 
-    print('Number of models {}'.format(len(param_vec)))
-    pool.map(fit_model, param_vec)
+                    if not model_name in listdir(foldername):
+                        params = ([X[ii] for ii in train_inds[fold_ind]],
+                                  [Ys[model_ind][ii] for ii in train_inds[fold_ind]],
+                                  [T[ii] for ii in train_inds[fold_ind]],
+                                  start_val, end_val, model_name,
+                                  class_num_arr[model_ind], foldername, model_type,
+                                  max_depth)
+                        param_vec.append(params)
+
+        print('Number of models {}'.format(len(param_vec)))
+        pool = Pool(processes=num_workers)
+        pool.map(fit_model, param_vec)
+    return model_split
