@@ -8,7 +8,7 @@ from shutil import rmtree
 from pickle import dump, load
 from timeit import default_timer as timer
 
-def main(num_models=4,k=4,data_name='dataset1_vid',incr=0.05):
+def main(num_models=4,k=4,data_name='dataset1_vid',incr=0.05,plot_bool=False):
     start = timer()
 
     #Parameters
@@ -18,8 +18,7 @@ def main(num_models=4,k=4,data_name='dataset1_vid',incr=0.05):
     #Create threshold areas
     thresh_arr = np.linspace(0.6, 1.0, num_thresh).astype('float')
 
-    plot_bool = False
-    model_bool = True
+    model_bool = False
 
     data_filename = data_name + '.pkl'
     plot_foldername = 'plot_{}_folds_{}_model_num_{}_incr_{}'.format(data_name, k, num_models, incr)
@@ -88,6 +87,7 @@ def main(num_models=4,k=4,data_name='dataset1_vid',incr=0.05):
                 cur_model_arr[0].append((start_val, end_val))
                 cur_model_arr[1].append(model)
             print('\t Loaded Models for Fold {}/{}'.format(fold_ind+1, k))
+
             #For each threshold
             # #Run training data through models
             # img_name = 'Model_{}_Fold_{}_Thresh_{:.4f}_train'.format(
@@ -143,8 +143,8 @@ def main(num_models=4,k=4,data_name='dataset1_vid',incr=0.05):
     with open(result_filename, 'wb') as output:
         dump(my_data, output)
 
-    if model_foldername in listdir():
-        rmtree(model_foldername, onerror=remove_readonly)
+    # if model_foldername in listdir():
+    #     rmtree(model_foldername, onerror=remove_readonly)
 
     end = timer()
     print('Total Minutes: {:.4}'.format((end - start)/60))
@@ -158,4 +158,4 @@ if __name__ == '__main__':
     # for num_models in np.arange(4,7):
     #     for incr in np.linspace(0.005, 0.5, 15):
     #         main(num_models=num_models,k=4,data_name = 'dataset1_vid',incr=incr)
-    main(num_models=4,k=4,data_name='dataset1_vid',incr=0.05)
+    main(num_models=4,k=4,data_name='dataset1_vid',incr=0.05,plot_bool=True)

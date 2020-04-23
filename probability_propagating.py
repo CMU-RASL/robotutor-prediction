@@ -17,7 +17,6 @@ def propogate(params):
     new_t = np.arange(step, np.ceil(t[-1]), step)
     probs = np.zeros((new_t.shape[0], num_classes))
     for ii, tt in enumerate(new_t):
-
         cur_inds = np.where((t <= tt) & (t >= tt-step))[0]
 
         if cur_inds.shape[0] == 0:
@@ -27,10 +26,10 @@ def propogate(params):
         model_ind = choose_model(t[cur_inds[-1]], models[0])
         avg_x = np.mean(x[cur_inds,:], axis=0).reshape(1, x[0,:].shape[0])
         model_prob = get_prob(models[1][model_ind], avg_x, num_classes)
-        probs[ii,:] = prev_prob + incr*(model_prob - prev_prob)
-        probs[ii,:] = probs[ii,:]/np.sum(probs[ii,:])
-        #probs[ii,:] = model_prob/(prev_prob + 1e-6)
-        #probs[ii,:] = probs[ii,:]/(np.sum(probs[ii,:]) + 1e-6)
+        # probs[ii,:] = prev_prob + incr*(model_prob - prev_prob)
+        # probs[ii,:] = probs[ii,:]/np.sum(probs[ii,:])
+        probs[ii,:] = model_prob*prev_prob/(class_weight + 1e-6)
+        probs[ii,:] = probs[ii,:]/(np.sum(probs[ii,:]) + 1e-6)
         prev_prob = probs[ii,:]
 
     label = y[-1].astype('int')[0]
@@ -128,8 +127,8 @@ def run_models(X, Y, T, models, thresh_arr, class_weight, num_classes = 3,
             conf_mats[thresh, label, mode_label] += 1
 
     if plot_confusions:
-        for thresh_ind, thresh in zip(thresh_arr):
-            full_img_name = '{}_{:.4f}_Confusion.png'.format(img_name, thres, ii)
+        for thresh_ind, thresh in enumerate(thresh_arr):
+            full_img_name = '{}_{:.4f}_Confusion.png'.format(img_name, thresh, ii)
 
             legend = legend_from_ind(num_classes)
             plot_confusion_matrix(conf_mats[thresh_ind, :, :], num_classes, legend, name,

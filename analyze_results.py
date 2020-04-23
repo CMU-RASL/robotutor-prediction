@@ -187,6 +187,59 @@ def one_plot():
 
     plt.show()
 
+def two_plot():
+    filename1 = 'result_dataset1_vid_folds_4_model_num_4_incr_0.05_prev.pkl'
+    filename2 = 'result_dataset1_vid_folds_4_model_num_4_incr_0.05.pkl'
+    result1 = pickle.load(open(filename1, 'rb'))
+    result2 = pickle.load(open(filename2, 'rb'))
+    thresh_arr = result1['thresh_arr']
+
+    test_accs1 = []
+    fracs1 = []
+    for acc, frac in zip(result1['test_accs'], result1['test_thresh_not_reached']):
+        test_accs1.append(np.mean(np.mean(acc, 0), 1))
+        frac = np.mean(frac,0)
+        fracs1.append(frac[:,0]/frac[:,1])
+
+    test_accs2 = []
+    fracs2 = []
+    for acc, frac in zip(result2['test_accs'], result2['test_thresh_not_reached']):
+        test_accs2.append(np.mean(np.mean(acc, 0), 1))
+        frac = np.mean(frac,0)
+        fracs2.append(frac[:,0]/frac[:,1])
+
+
+    fig, axs = plt.subplots(2,2)
+    axs[0, 0].plot(thresh_arr, test_accs1[0], color='r', label='Previous Method')
+    axs[0, 0].plot(thresh_arr, test_accs2[0], color='g', label='New Method')
+    axs[0, 0].set_ylabel('Test Accuracy of Threshold Met')
+    axs[0, 0].set_xlabel('Threshold')
+    axs[0, 0].set_ylim([0, 1])
+    axs[0, 0].set_title('Feedback')
+
+    axs[0, 1].plot(thresh_arr, test_accs1[1], color='r', label='Previous Method')
+    axs[0, 1].plot(thresh_arr, test_accs2[1], color='g', label='New Method')
+    axs[0, 1].set_ylabel('Test Accuracy of Threshold Met')
+    axs[0, 1].set_xlabel('Threshold')
+    axs[0, 1].set_ylim([0, 1])
+    axs[0, 1].set_title('Backbutton')
+
+    axs[1, 0].plot(thresh_arr, 1-fracs1[0], color='r', label='Previous Method')
+    axs[1, 0].plot(thresh_arr, 1-fracs2[0], color='g', label='New Method')
+    axs[1, 0].set_ylabel('Fraction of Threshold Met')
+    axs[1, 0].set_xlabel('Threshold')
+    axs[1, 0].set_ylim([0, 1])
+    axs[1, 0].legend()
+
+    axs[1, 1].plot(thresh_arr, 1-fracs1[1], color='r', label='Previous Method')
+    axs[1, 1].plot(thresh_arr, 1-fracs2[1], color='g', label='New Method')
+    axs[1, 1].set_ylabel('Fraction of Threshold Met')
+    axs[1, 1].set_xlabel('Threshold')
+    axs[1, 1].set_ylim([0, 1])
+    axs[1, 1].legend()
+
+    plt.show()
+
 def feedback_dist_by_backbutton():
     filename = 'dataset2.pkl'
     with open(filename, 'rb') as f:
@@ -299,4 +352,4 @@ def get_fractions():
     print('No Backbutton {} ({:.1%})'.format(backbutton2_count[0], backbutton2_count[0]/backbutton2.shape[0]))
     print('Backbutton {} ({:.1%})'.format(backbutton2_count[1], backbutton2_count[1]/backbutton2.shape[0]))
 
-num_model_iter_plot()
+two_plot()
