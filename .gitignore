@@ -1,3 +1,15 @@
+# Custom gitignore
+*.csv
+*.png
+*.mp4
+*.json
+*.pkl
+*.npz
+dataset*/
+plot_*/
+model_*/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
