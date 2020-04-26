@@ -1,9 +1,6 @@
 import os
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
-import csv
-import numpy.linalg
 import scipy.spatial.transform
 from skimage.measure import compare_ssim
 from skimage.metrics import structural_similarity
@@ -221,6 +218,7 @@ def get_activity_type(frame):
         return activity_name
 
 def backbutton_pressed(frame):
+
     wind = cv2.cvtColor(frame[10:70,10:100,:], cv2.COLOR_BGR2GRAY)
     output = wind.copy()
     blur = cv2.GaussianBlur(wind,(5,5),0);
@@ -232,6 +230,7 @@ def backbutton_pressed(frame):
         radius = circles[0][0][2]
         if (radius < 7.0 or radius > 10.9):
             return False
+        #uncomment this to see detected circles
         # circles = np.round(circles[0, :]).astype("int")
         # for (x, y, r) in circles:
     	# 	# draw the circle in the output image, then draw a rectangle
@@ -244,73 +243,25 @@ def backbutton_pressed(frame):
         return True
     return False
 
+def feedBackType(frame):
 
-def get_feedback(frame):
+    height, width, channels = frame.shape
+    yellow = frame[height // 2 - 110 : height // 2 - 100, width // 4 - 25 : width // 4 + 25]
+    green = frame[height // 5 + 65 : height // 5 + 75, width // 4 - 25 : width // 4 + 25]
+    red = frame[4*height // 5 - 85 : 4*height // 5 - 75, width // 4 - 25 : width // 4 + 25]
 
-    positive_image = frame[100:200,100:200,:]
-    neutral_image = frame[400:500,100:200,:]
-    negative_image = frame[600:700,100:200,:]
+    yc, ycount = np.unique(yellow.reshape(-1,yellow.shape[-1]), axis=0, return_counts=True)
+    gc, gcount = np.unique(green.reshape(-1,green.shape[-1]), axis=0, return_counts=True)
+    rc, rcount = np.unique(red.reshape(-1,red.shape[-1]), axis=0, return_counts=True)
 
-#    scipy.misc.imsave('templates/feedbacks/neutral.png',neutral_image)
-    ssims = np.zeros(3)
+    g= gc[gcount.argmax()]
+    y = yc[ycount.argmax()]
+    r = rc[rcount.argmax()]
 
-    if 'negative.png' in os.listdir('templates/feedbacks'):
-        gray = cv2.cvtColor(negative_image, cv2.COLOR_BGR2GRAY)
-        template_image = cv2.imread('templates/feedbacks/negative.png',cv2.IMREAD_GRAYSCALE)
-        ssims[0] = compare_ssim(template_image, gray)
-    if 'neutral.png' in os.listdir('templates/feedbacks'):
-        gray = cv2.cvtColor(neutral_image, cv2.COLOR_BGR2GRAY)
-        template_image = cv2.imread('templates/feedbacks/neutral.png',cv2.IMREAD_GRAYSCALE)
-        ssims[1] = compare_ssim(template_image, gray)
-    if 'positive.png' in os.listdir('templates/feedbacks'):
-        gray = cv2.cvtColor(positive_image, cv2.COLOR_BGR2GRAY)
-        template_image = cv2.imread('templates/feedbacks/positive.png',cv2.IMREAD_GRAYSCALE)
-        ssims[2] = compare_ssim(template_image, gray)
-
-    if np.max(ssims) < 0.9:
+    if (np.array_equal(g, [208, 246, 208])):
+        return 1
+    elif (np.array_equal(y, [207, 244, 248])):
+        return 0
+    elif (np.array_equal(r, [207, 208, 247])):
         return -1
-    else:
-        return np.argmax(np.abs(ssims))
-
-def process_video(video_filename, csv_filename):
-    cap = cv2.VideoCapture('data2/videos/'+video_filename)
-    cap.get(7)
-    cap.set(1, 100)
-    res, frame = cap.read()
-
-#    plt.imshow(frame)
-
-    #activity selector screen 80(hear), 2850 (echo), 17000 (hear)
-    activity_name = get_activity_type(frame)
-    print('Activity Name', activity_name)
-#
-#    #within activity  400-1000
-#    picture_side = get_picture_side(frame)
-#    read_fraction = get_read_fraction(frame, picture_side)
-#    print('Picture side', picture_side)
-#    print('Read Fraction:', read_fraction)
-
-    #feedback screen 2600 (1), 15850 (1), 15800 (-1, nothing selected)
-    feedback = get_feedback(frame)
-    print('Feedback', feedback)
-
-#    with open('data2/openface/' + csv_filename, mode='r') as csv_file:
-#        csv_reader = csv.reader(csv_file, delimiter=',')
-#        for ii, line in enumerate(csv_reader):
-#            if ii == 0:
-#                headers = [s.strip() for s in line]
-#            else:
-#                openface_features = get_openface_features(headers, line)
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-
-def main():
-    video_filename = '0001.mp4'
-    csv_filename = '0001.csv'
-
-    process_video(video_filename, csv_filename)
-
-if __name__ == '__main__':
-    main()
+    return None
