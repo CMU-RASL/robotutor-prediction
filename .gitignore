@@ -142,5 +142,6 @@ dmypy.json
 
 data/
 data2/
-templates/
 test.py
+
+.DS_Store

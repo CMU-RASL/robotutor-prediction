@@ -19,3 +19,31 @@
   ```for f in *.mp4; do ../../bin/FeatureExtraction -f $f; done;```
 
 5. Copy the csv files created in `~\OpenFace\build\crop_videos\processed` to your computer
+
+## Generating Data From Videos
+
+To generate data from videos, use the direct_VF.py script located in the home directory.
+
+### Getting Picture Sides
+
+1. Create directory `~\data\picture_sides`
+2. Use the function
+```python
+def get_picture_side(video_filename) :
+```
+to generate a file containing the side the picture is located on for each frame (represented by a line). This file will be stored in the data/picture_sides directory.
+
+### Generating CSV Files
+
+Make sure video mp4, picture side, and OpenFace feature files are available.
+
+1. Create directory `~\data\activities`
+2. Run
+```bash
+python3 direct_VF directory_name video_name
+```
+3. If you want to generate CSV files for all videos in a given directory, run the following:
+```bash
+python3 direct_VF directory_name all
+```
+This will create csv files for each activity labeled by the video name, activity number, and activity name located in the data/activities directory.
