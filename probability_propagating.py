@@ -1,21 +1,22 @@
 import numpy as np
 from helper import choose_model, class_name_from_ind, get_metrics
 from helper import get_prob, legend_from_ind
-from plotting import plot_probability, plot_confusion_matrix
+from plotting import plot_probability, plot_confusion_matrix, plot_model_probability
 from multiprocessing import Pool
 
 def propogate(params):
     x, y, t, models, num_classes, thresh_arr, class_weight, img_name, name, \
             cur_series, num_series, plot_graphs, incr = params
-
+    incr = 1.0
     step = 1.0
 
     num_points = x.shape[0]
     probs = np.zeros((num_points, num_classes))
 
-    prev_prob = class_weight
+    prev_prob = np.copy(class_weight)
     new_t = np.arange(step, np.ceil(t[-1]), step)
     probs = np.zeros((new_t.shape[0], num_classes))
+    model_probs = np.zeros((new_t.shape[0], num_classes))
     for ii, tt in enumerate(new_t):
         cur_inds = np.where((t <= tt) & (t >= tt-step))[0]
 
@@ -25,16 +26,35 @@ def propogate(params):
 
         model_ind = choose_model(t[cur_inds[-1]], models[0])
         avg_x = np.mean(x[cur_inds,:], axis=0).reshape(1, x[0,:].shape[0])
-        model_prob = get_prob(models[1][model_ind], avg_x, num_classes)
-        # probs[ii,:] = prev_prob + incr*(model_prob - prev_prob)
+        model_probs[ii,:] = get_prob(models[1][model_ind], avg_x, num_classes)
+
+        # probs[ii,:] = prev_prob + incr*(model_probs[ii,:] - prev_prob)
         # probs[ii,:] = probs[ii,:]/np.sum(probs[ii,:])
-        probs[ii,:] = model_prob*prev_prob/(class_weight + 1e-6)
-        probs[ii,:] = probs[ii,:]/(np.sum(probs[ii,:]) + 1e-6)
+
+        probs[ii,:] = model_probs[ii,:]*prev_prob/(class_weight)
+        probs[ii,:] = probs[ii,:]/(np.sum(probs[ii,:]))
+        diff = probs[ii,:] - prev_prob
+        for jj in range(num_classes):
+            if abs(diff[jj]) > 0.01:
+                probs[ii,jj] = prev_prob[jj] + 0.01*np.sign((probs[ii,jj] - prev_prob[jj]))
+        probs[ii,:] = probs[ii,:]/(np.sum(probs[ii,:]))
+        if cur_series == 10:
+            print(np.round(probs[ii,:], decimals=2))
+
         prev_prob = probs[ii,:]
+
 
     label = y[-1].astype('int')[0]
 
     pred_labels = np.empty_like(thresh_arr).astype('int')
+
+    legend = legend_from_ind(num_classes)
+
+    # if plot_graphs:
+    #     full_img_name = '{}_Model_Series_{:03d}.png'.format(img_name, cur_series)
+    #     title = "{}: {}/{} Model Probabilities".format(name,
+    #              cur_series+1, num_series)
+    #     plot_model_probability(new_t, model_probs, legend, full_img_name, title)
 
     for thresh_ind, thresh in enumerate(thresh_arr):
         inds = [np.where(probs[:,class_num] > thresh)[0]
@@ -60,7 +80,6 @@ def propogate(params):
                 count_text = "{:.0%} Threshold\nClassified at: {} sec".format(
                         thresh, new_t[ind_of_classification])
 
-            legend = legend_from_ind(num_classes)
 
             title = "{}: {}/{}\n True Label: {}, Predicted Label: {}".format(name,
                      cur_series+1, num_series, class_name_from_ind(label, num_classes),

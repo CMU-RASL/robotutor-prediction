@@ -241,7 +241,7 @@ def two_plot():
     plt.show()
 
 def feedback_dist_by_backbutton():
-    filename = 'dataset2.pkl'
+    filename = 'dataset1_vid.pkl'
     with open(filename, 'rb') as f:
         data = pickle.load(f)
 
@@ -269,16 +269,16 @@ def feedback_dist_by_backbutton():
             cur_feed = np.where(feedback == jj)[0]
             cur_time = total_times[cur_feed]
             counts, bins = np.histogram(cur_time, bins=10, range=(0, 1250))
-            axs[jj, ii].bar(bins[:-1], counts/cur_feed.shape[0], width=(bins[1]-bins[0])*3/4, color=colors[jj])
+            axs[jj, ii].bar(bins[:-1], counts, width=(bins[1]-bins[0])*3/4, color=colors[jj])
             axs[jj, ii].set_title('{} - {}'.format(legend1[ii], legend2[jj]))
-            axs[jj, 0].set_ylabel('Percentage of Activities')
-            axs[jj, ii].set_ylim([0, 1.0])
+            axs[jj, 0].set_ylabel('Activities Count')
+            #axs[jj, ii].set_ylim([0, 1.0])
             axs[jj, ii].set_xlim([-100, 1250])
         axs[2, ii].set_xlabel('Time (s)')
     plt.show()
 
 def feedback_dist_by_time():
-    filename = 'dataset2.pkl'
+    filename = 'dataset1_vid.pkl'
     with open(filename, 'rb') as f:
         data = pickle.load(f)
 
@@ -303,10 +303,10 @@ def feedback_dist_by_time():
 
         counts, bins = np.histogram(times, bins=10, range=(0, 1250))
 
-        axs[ii].bar(bins[:-1], counts/feedback.shape[0], width=(bins[1]-bins[0])*3/4, color=colors[ii])
-        axs[ii].set_ylabel('Percentage of Activities')
+        axs[ii].bar(bins[:-1], counts, width=(bins[1]-bins[0])*3/4, color=colors[ii])
+        axs[ii].set_ylabel('Activities Count')
         axs[ii].set_title(legend2[ii])
-        axs[ii].set_ylim([0, 1.0])
+        #axs[ii].set_ylim([0, 1.0])
         axs[ii].set_xlim([-100, 1250])
     axs[2].set_xlabel('Time (s)')
     plt.show()
@@ -352,4 +352,4 @@ def get_fractions():
     print('No Backbutton {} ({:.1%})'.format(backbutton2_count[0], backbutton2_count[0]/backbutton2.shape[0]))
     print('Backbutton {} ({:.1%})'.format(backbutton2_count[1], backbutton2_count[1]/backbutton2.shape[0]))
 
-two_plot()
+feedback_dist_by_backbutton()
