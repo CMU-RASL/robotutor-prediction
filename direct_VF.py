@@ -31,30 +31,35 @@ def check_path(video_filename): #makes sure necessary files exist
         return True
     return False
 
-def generateData(video_filename): #generate csv files
-    vf = video_filename.split("/")[-1][:-4]
-    if not check_path(vf):
-        print("missing picture or openface file")
+def generateData(dir, video_num): #generate csv files
+
+    picture_sides_path = '{}/picture_sides/{}_picture_sides.txt'.format(dir, video_num)
+    if not os.path.exists(picture_sides_path):
+        print('/t Could not find Picture sides')
         return
+    with open(picture_sides_path) as f:
+        all_sides = f.readlines()
 
-    cap = cv2.VideoCapture(video_filename) #video name
-
-    f = open('data/picture_sides/'+vf+'_picture_sides.txt')
-    print(vf)
-    all_sides = f.readlines() #starts reading from the first line
-    f.close()
-    for i in range(len(all_sides)):
-        if all_sides[i].strip() == "0":
+    for i in range(1, len(all_sides)):
+        if all_sides[i].strip() == "0" or all_sides[i].strip() == "left":
             all_sides[i] = 0
-        elif all_sides[i].strip() == "1":
+        elif all_sides[i].strip() == "1" or all_sides[i].strip() == "right":
             all_sides[i] = 1
         else:
-            print(all_sides[i])
-            error()
+            print('\tUnexpected character in picture sides', all_sides[i])
+            return
+        if i%5000 == 0:
+            print('\tFinished Picture Sides', i)
 
     headers = ""
     all_openface = []
-    with open('data/openface/' + vf+'.csv', mode='r') as csv_file:
+    openface_path = '{}/openface/{}_crop.csv'.format(dir, video_num)
+    if not os.path.exists(openface_path):
+        openface_path = '{}/openface/{}.csv'.format(dir, video_num)
+        if not os.path.exists(openface_path):
+            print('/t Could not find Openface')
+            return
+    with open(openface_path, mode='r') as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=',')
         nul = 0
         try: #tries to read csv files, aborts if encounters null character
@@ -64,12 +69,10 @@ def generateData(video_filename): #generate csv files
                     headers = [s.strip() for s in line]
                 else:
                     all_openface.append(hp.get_openface_features(headers, line))
+                if ii%1000 == 0:
+                    print('\tFinished Open Face', ii)
         except:
-            print("null character found on line " + str(nul))
-
-
-
-    fps = cap.get(cv2.CAP_PROP_FPS)
+            print("\tnull character found on line " + str(nul))
 
     #initial values
     feedBack_num = 0
@@ -86,6 +89,12 @@ def generateData(video_filename): #generate csv files
     frac_change = False
     record = False #skips useless frames
     press = False #is backbutton being pressed
+
+    vid_path = '{}/videos/{}.mp4'.format(dir, video_num)
+    if not os.path.exists(vid_path):
+        return
+    cap = cv2.VideoCapture(vid_path) #video name
+    fps = cap.get(cv2.CAP_PROP_FPS)
 
     while(cap.isOpened()):
         # Capture frame-by-frame
@@ -106,10 +115,11 @@ def generateData(video_filename): #generate csv files
 
         if activity_start: #activity starting
             print("")
-            print("activity started", activity_name)
+            print("\tactivity started", activity_name)
             #reset all variables
             frame_count = 0
             times = []
+            vid_times = []
             picture_sides = []
             carry = 0
             lines = []
@@ -126,15 +136,16 @@ def generateData(video_filename): #generate csv files
         if record:  #useful frames
             frame_count += 1
             times.append(frame_count/fps)
+            vid_times.append(totalframe_count/fps)
             if totalframe_count-1 < len(all_openface):
                 openface.append(all_openface[totalframe_count-1])
             else:
-                print("not enough open face features, aborting rest of video")
+                print("\tnot enough open face features, aborting rest of video")
                 break
             if totalframe_count-1 < len(all_sides):
                 picture_sides.append(all_sides[totalframe_count-1])
             else:
-                print("picture side file too small")
+                print("\tpicture side file too small")
                 picture_sides.append(hp.get_picture_side(frame))
             frac = round(hp.get_read_fraction(frame, picture_sides[len(picture_sides)-1]), 2)
             if frac == 1:
@@ -168,35 +179,51 @@ def generateData(video_filename): #generate csv files
             feedBack_num += 1
             seenfeedBack = True
             #activity ended, create csv file
-            createFeatures(vf, activity_name, feedBack_num, fb, times, openface, lines, picture_sides, backbutton)
+            createFeatures(dir, video_num, activity_name, feedBack_num, fb, times, vid_times, openface, lines, picture_sides, backbutton)
             record = False
         elif fb == None and seenfeedBack:
             seenfeedBack = False
             activity_name = ""
 
+        if totalframe_count%500 == 0:
+            print('\tFinished Frame:', totalframe_count, 'Time (min):', np.round(totalframe_count/fps/60, decimals=2))
+
     # When everything done, release the capture
     cap.release()
     cv2.destroyAllWindows()
 
-def createFeatures(vf, activity_name, activity_ind, feedBack, times, openface, lines, picture_sides, backbutton): #creates csv files
-    states = ["temp"]*len(times)
-    with open('data/activities/'+ vf + '_'+str(activity_ind)+'_' + activity_name + '.csv', 'w') as f:
+def createFeatures(dir, video_num, activity_name, activity_ind, feedBack, times, vid_times, openface, lines, picture_sides, backbutton): #creates csv files
+    if times[-1] < 50:
+        backbutton = 0
+    if activity_name == 'story_hear':
+        activity_type = 0
+    elif activity_name == 'story_read':
+        activity_type = 1
+    else:
+        activity_type = 2
+
+    output_path = '{}/csvs/{}_{}_{}.csv'.format(dir, video_num, activity_ind, activity_name)
+    with open(output_path, 'w') as f:
         writer = csv.writer(f)
-        writer.writerow(["Video Filename", int(vf), "Activity Int", activity_ind, "Activity Name", activity_name, "Feedback", feedBack, "Backbutton", backbutton])
-        writer.writerow(["Time", "State", "Head Proximity", "Head Orientation", "Gaze Direction", "Eye Aspect Ratio", "Pupil Ratio", "Confidence", "Success", "AU04", "AU07", "AU12", "AU25", "AU26", "AU45", "Lines", "Picture Side"])
+        writer.writerow(["Video Filename", video_num, "Activity Ind", activity_ind, \
+                "Activity Name", activity_name, "Feedback", feedBack, "Backbutton", backbutton])
+        writer.writerow(["Time", "Activity Ind", "Video Time", "Head Proximity", \
+                "Head Orientation", "Gaze Direction", "Eye Aspect Ratio", "Pupil Ratio", \
+                "Confidence", "Success", "AU04", "AU07", "AU12", "AU25", "AU26", "AU45", \
+                "Progress", "Picture Side", "Activity Type"])
         for i in range(len (times)):
-            writer.writerow([times[i], states[i], openface[i][1], openface[i][2], openface[i][3], openface[i][4], openface[i][5], openface[i][6], openface[i][7], openface[i][8], openface[i][9], openface[i][10], openface[i][11],openface[i][12],openface[i][13],lines[i], picture_sides[i]])
+            if openface[i][2] > np.pi:
+                openface[i][2] -= 2*np.pi
+            writer.writerow([times[i], activity_ind, vid_times[i], openface[i][1], \
+                    openface[i][2], openface[i][3], openface[i][4], openface[i][5], openface[i][6], \
+                    openface[i][7], openface[i][8], openface[i][9], openface[i][10], openface[i][11], \
+                    openface[i][12],openface[i][13],lines[i], picture_sides[i], activity_type])
 
 def main(dir, video_filename): #computes on specific file or directory
-    if video_filename == "all":
-        video_filenames = os.listdir(dir)
-        for vf in video_filenames:
-            print("starting video " + vf)
-            generateData(dir+"/"+vf)
-            # get_picture_side(dir+"/"+vf)
-    else:
-        print("starting video " + video_filename)
-        generateData(dir+"/"+video_filename)
-        # get_picture_side(dir+"/"+video_filename)
+    print("starting video " + video_filename)
+    generateData(dir, video_filename)
+    # get_picture_side(dir+"/"+video_filename)
 
-main(sys.argv[1], sys.argv[2])
+for n in range(99, 100):
+    vid_name = '{0:04d}'.format(n)
+    main('dataset2', vid_name)

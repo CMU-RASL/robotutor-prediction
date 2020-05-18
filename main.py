@@ -1,161 +1,159 @@
 import numpy as np
 from os import mkdir, listdir
-from plotting import plot_accuracies, plot_rocs
-from model_training import load_model, get_training_split, create_all_models
-from probability_propagating import run_models
+from model_training import get_training_split, create_all_models, get_acc
 from helper import remove_readonly, filter_data, get_class_weight
 from shutil import rmtree
 from pickle import dump, load
 from timeit import default_timer as timer
 
-def main(num_models=4,k=4,data_name='dataset1_vid',incr=0.05,plot_bool=False):
+def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all', col_to_remove='None'):
     start = timer()
+    print('_________________')
+    print('Setting Parameters:')
 
     #Parameters
     num_workers = 3
-    num_thresh = 8
 
-    #Create threshold areas
-    thresh_arr = np.linspace(0.6, 1.0, num_thresh).astype('float')
+    #Create threshold arrays
+    thresh_arr = np.linspace(0.5, 1.0, 10)
+    # thresh_arr = np.array([0.5, 0.83])
+    num_thresh = thresh_arr.shape[0]
 
-    model_bool = False
+    num_model_arr = np.arange(2, 7).astype('int')
+    # num_model_arr = np.array([1, 2])
+    num_model = num_model_arr.shape[0]
 
-    data_filename = data_name + '.pkl'
-    plot_foldername = 'plot_{}_folds_{}_model_num_{}_incr_{}'.format(data_name, k, num_models, incr)
-    model_foldername = 'model_{}_folds_{}_model_num_{}_incr_{}'.format(data_name, k, num_models, incr)
-    result_filename = 'result_{}_folds_{}_model_num_{}_incr_{}.pkl'.format(data_name, k, num_models, incr)
+    num_component_arr = np.arange(1, 7).astype('int')
+    # num_component_arr = np.array([6])
+    num_components = num_component_arr.shape[0]
 
     class_num_arr = [3, 2]
+    modeltype_name_arr = ['Feedback', 'Backbutton']
+
+    data_filename = data_name + '.pkl'
 
     #Load data
     with open(data_filename, 'rb') as f:
         data = load(f)
 
+    #Filter data
     X, Y1, Y2, T, feat_names = data['X'], data['Y1'], data['Y2'], data['T'], data['feat_names']
-    X, Y1, Y2, T, feat_names = filter_data(X, Y1, Y2, T, feat_names)
-
+    X, Y1, Y2, T, feat_names = filter_data(X, Y1, Y2, T, feat_names, feature_set, col_to_remove)
     Ys = [Y1, Y2]
 
     #Training Split
     train_inds, test_inds = get_training_split(len(X), k)
 
-    if model_bool:
-        if model_foldername in listdir():
-            rmtree(model_foldername, onerror=remove_readonly)
-        mkdir(model_foldername)
+    print('_________________')
+    print('Cross-Validation:')
 
-    #Create all models - uncomment for creation of joblib files
-    model_split = create_all_models(model_foldername, num_models, k,
-        class_num_arr, num_workers, X, Ys, T, train_inds, test_inds, model_bool)
+    test_accs = np.zeros((2, k, num_model, num_components, num_thresh))
+    test_early = np.zeros((2, k, num_model, num_components, num_thresh))
 
-    #Create folders
-    if plot_bool:
-        if plot_foldername in listdir():
-            rmtree(plot_foldername, onerror=remove_readonly)
-        mkdir(plot_foldername)
-        mkdir(plot_foldername + '/accuracy')
-        mkdir(plot_foldername + '/roc')
-        mkdir(plot_foldername + '/confusion')
-        mkdir(plot_foldername + '/prob_train')
-        mkdir(plot_foldername + '/prob_test')
+    for model_num_ind, model_num in enumerate(num_model_arr):
+        for component_num_ind, component_num in enumerate(num_component_arr):
+            #Create folders
+            if col_to_remove == 'None':
+                plot_foldername = 'plot_data_{}_folds_{}_modelnum_{}_componentnum_{}_features_{}'.format(data_name, k, model_num, component_num, feature_set)
+            else:
+                plot_foldername = 'plot_data_{}_folds_{}_modelnum_{}_componentnum_{}_features_{}_remove_{}'.format(data_name, k, model_num, component_num, feature_set, col_to_remove)
+            if plot_bool:
+                if plot_foldername in listdir('plot'):
+                    rmtree(plot_foldername, onerror=remove_readonly)
+                mkdir(plot_foldername)
+            if col_to_remove == 'None':
+                model_foldername = 'model_data_{}_folds_{}_modelnum_{}_componentnum_{}_features_{}'.format(data_name, k, model_num, component_num, feature_set)
+            else:
+                model_foldername = 'model_data_{}_folds_{}_modelnum_{}_componentnum_{}_features_{}_remove_{}'.format(data_name, k, model_num, component_num, feature_set, col_to_remove)
+            if model_foldername in listdir('models'):
+                model_bool = False
+                print('\t Model {} Already Exists - Training Complete'.format(model_foldername))
+                # rmtree(model_foldername, onerror=remove_readonly)
+            else:
+                model_bool = True
+                mkdir(model_foldername)
 
-    #Initialize acc arrays
-    train_accs = [np.empty((k, num_thresh, 3)), np.empty((k, num_thresh, 1))]
-    test_accs = [np.empty((k, num_thresh, 3)), np.empty((k, num_thresh, 1))]
-    test_thresh_not_reached = [np.empty((k, num_thresh, 2)), np.empty((k, num_thresh, 2))]
+            print('\t Creating Models for Model Num {}/{}, Component Num {}/{}'.format(model_num_ind+1, len(num_model_arr), component_num_ind+1, len(num_component_arr)))
+            model_split = create_all_models(model_foldername, [model_num,model_num],
+                class_num_arr, num_workers, X, Ys, T, train_inds, model_bool, component_num)
 
-    #For each of the two model types
-    for model_ind in range(len(model_split)):
-        print('Model {}/{}'.format(model_ind+1, len(model_split)))
-        #For each fold
-        for fold_ind in range(len(train_inds)):
-            #For each model in model split
-            cur_model_arr = [[],[]]
-            for model_start_ind in range(num_models):
-
-                #Load the models into the area
-                start_val = model_split[model_ind][fold_ind,model_start_ind]
-                end_val = model_split[model_ind][fold_ind,model_start_ind+1]
-                model_name = 'Model_{}_Start_{}_End_{}_Fold_{}.joblib'.format(
-                model_ind, start_val, end_val, fold_ind)
-
-                if not model_name in listdir(model_foldername):
-                    print('\t Could not find {}'.format(model_name))
-                    return
+            for modeltype_ind in range(len(model_split)):
+                if col_to_remove == 'None':
+                    filename = 'prob_data_{}_folds_{}_modeltype_{}_modelnum_{}_componentnum_{}_features_{}.pkl'.format(data_name, k, modeltype_ind, model_num, component_num, feature_set)
                 else:
-                    model = load_model(model_name, model_foldername)
-                cur_model_arr[0].append((start_val, end_val))
-                cur_model_arr[1].append(model)
-            print('\t Loaded Models for Fold {}/{}'.format(fold_ind+1, k))
+                    filename = 'prob_data_{}_folds_{}_modeltype_{}_modelnum_{}_componentnum_{}_features_{}_remove_{}.pkl'.format(data_name, k, modeltype_ind, model_num, component_num, feature_set, col_to_remove)
 
-            #For each threshold
-            # #Run training data through models
-            # img_name = 'Model_{}_Fold_{}_Thresh_{:.4f}_train'.format(
-            #     model_ind, fold_ind, thresh)
-            # fpr, tpr, acc = run_models(X[train_inds[fold_ind]],
-            #                      Ys[model_ind][train_inds[fold_ind]],
-            #                      T[train_inds[fold_ind]], cur_model_arr,
-            #                      thresh, num_classes =
-            #                      class_num_arr[model_ind],
-            #                      plot_graphs = plot_bool,
-            #                      plot_confusions=plot_bool, name = 'train',
-            #                      img_name = plot_foldername +
-            #                         '//prob_train//' + img_name)
-            # train_accs[model_ind][fold_ind, thresh_ind, :] = acc
-            # print('train')
+                if filename in listdir('prob'):
+                    with open('prob//'+filename, 'rb') as f:
+                        tmpdata = load(f)
+                    test_accs[modeltype_ind, :, model_num_ind, component_num_ind, :] = tmpdata['accs']
+                    test_early[modeltype_ind, :, model_num_ind, component_num_ind, :] = tmpdata['earliness']
+                else:
+                    for fold_ind in range(len(train_inds)):
+                        Xk = [X[ii] for ii in test_inds[fold_ind]]
+                        Yk = [Ys[modeltype_ind][ii] for ii in test_inds[fold_ind]]
+                        Tk = [T[ii] for ii in test_inds[fold_ind]]
+                        class_weight = get_class_weight([Ys[modeltype_ind][ii][-1] for ii in train_inds[fold_ind]],
+                            class_num_arr[modeltype_ind])
+                        test_accs[modeltype_ind, fold_ind, model_num_ind, component_num_ind, :], _ ,\
+                        test_early[modeltype_ind, fold_ind, model_num_ind, component_num_ind, :] = get_acc(model_foldername,
+                                        modeltype_ind, model_split[modeltype_ind][fold_ind,:],
+                                        fold_ind, k, Xk, Yk, Tk, thresh_arr, class_weight,
+                                        class_num_arr[modeltype_ind], plot_foldername, plot_bool)
 
-            #Run test data through models
-            class_weight = get_class_weight(
-                [Ys[model_ind][ii][-1] for ii in train_inds[fold_ind]],
-                class_num_arr[model_ind])
-            img_name = 'Model_{}_Fold_{}_test'.format(
-                    model_ind, fold_ind)
-            acc, num, den = run_models(
-                            [X[ii] for ii in test_inds[fold_ind]],
-                            [Ys[model_ind][ii] for ii in test_inds[fold_ind]],
-                            [T[ii] for ii in test_inds[fold_ind]], cur_model_arr,
-                            thresh_arr, class_weight, num_classes =
-                            class_num_arr[model_ind],
-                            plot_graphs = plot_bool,
-                            plot_confusions=plot_bool, name = 'test',
-                            img_name = plot_foldername +
-                            '//prob_test//' + img_name, incr=incr)
-            test_accs[model_ind][fold_ind, :, :] = acc
-            test_thresh_not_reached[model_ind][fold_ind, :, 0] = num
-            test_thresh_not_reached[model_ind][fold_ind, :, 1] = den
-            print('\t Fold {}/{} Complete'.format(fold_ind+1,k))
+                    my_data = {'accs': test_accs[modeltype_ind, :, model_num_ind, component_num_ind, :],
+                            'earliness': test_early[modeltype_ind, :, model_num_ind, component_num_ind, :]}
+                    with open('prob//'+filename, 'wb') as output:
+                        dump(my_data, output)
 
-    #Create plots for accuracies and rocs
-    # for model_ind in range(len(model_split)):
-    #     img_name = plot_foldername + '//accuracy//' + 'Model_{}_train'.format(
-    #             model_ind)
-    #     if plot_bool:
-    #         plot_accuracies(train_accs[model_ind], thresh_arr, 'train',
-    #                 img_name)
-    #     img_name = plot_foldername + '//accuracy//' + 'Model_{}_test'.format(
-    #             model_ind)
-    #     if plot_bool:
-    #         plot_accuracies(test_accs[model_ind], thresh_arr, 'test',img_name)
+    print('_________________')
+    print('Choosing Hyperparameters:')
+    alpha = 0.7
+    best_threshs = []
+    best_model_nums = []
+    best_component_nums = []
+    for modeltype_ind in range(len(model_split)):
 
-    my_data = {'train_accs':train_accs,'test_accs':test_accs,
-        'thresh_arr': thresh_arr, 'feat_names': feat_names,
-        'test_thresh_not_reached': test_thresh_not_reached}
+        #Average over classes and folds
+        cur_test_accs = np.mean(test_accs[modeltype_ind, :, :, :, :], axis=0)
+        cur_test_early = np.mean(test_early[modeltype_ind, :, :, :, :], axis=0)
+        metric = alpha*cur_test_accs + (1-alpha)*cur_test_early
+
+        #Choose best hyperparameters
+        max_metric = np.max(metric)
+        ind1, ind2, ind3 = np.where(metric == max_metric)
+        best_model_num = num_model_arr[ind1]
+        best_component_num = num_component_arr[ind2]
+        best_thresh = thresh_arr[ind3]
+        print('')
+        print('\t {} - All Best Model Number'.format(modeltype_name_arr[modeltype_ind]), best_model_num)
+        print('\t {} - All Best Component Number'.format(modeltype_name_arr[modeltype_ind]), best_component_num)
+        print('\t {} - All Best Thresholds'.format(modeltype_name_arr[modeltype_ind]), np.round(best_thresh, decimals=2))
+
+        tmp_ind = 0
+        print('\t {} - Best Model Number {}, Best Component Number {}, Best Threshold {:.5f}, '.format(modeltype_name_arr[modeltype_ind], best_model_num[tmp_ind], best_component_num[tmp_ind], best_thresh[tmp_ind]))
+        print('\t {} - For best parameters - Metric {:.5f}, Accuracy {:.5f}, Earliness {:.5f}'.format(modeltype_name_arr[modeltype_ind], max_metric, cur_test_accs[ind1[tmp_ind], ind2[tmp_ind], ind3[tmp_ind]], cur_test_early[ind1[tmp_ind], ind2[tmp_ind], ind3[tmp_ind]]))
+        best_threshs.append(best_thresh[tmp_ind])
+        best_model_nums.append(best_model_num[tmp_ind])
+        best_component_nums.append(best_component_num[tmp_ind])
+
+    my_data = {'thresh_arr': thresh_arr, 'num_model_arr': num_model_arr,
+        'num_component_arr': num_component_arr,
+        'feat_names': feat_names, 'test_accs': test_accs,
+        'best_model_nums': best_model_nums, 'best_threshs': best_threshs,
+        'best_component_nums': best_component_nums}
+
+    if col_to_remove == 'None':
+        result_filename = 'result//result_features_{}.pkl'.format(feature_set)
+    else:
+        result_filename = 'result//result_features_{}_remove_{}.pkl'.format(feature_set, col_to_remove)
     with open(result_filename, 'wb') as output:
         dump(my_data, output)
 
-    # if model_foldername in listdir():
-    #     rmtree(model_foldername, onerror=remove_readonly)
-
     end = timer()
-    print('Total Minutes: {:.4}'.format((end - start)/60))
+    print('Total Minutes - {:.4}, Saved to - {}'.format((end - start)/60, result_filename))
 
 
 if __name__ == '__main__':
-    # headers = ['Head Proximity', 'Head Orientation', 'Gaze Direction',
-    #         'Eye Aspect Ratio', 'Pupil Ratio', 'AU04', 'AU07', 'AU12', 'AU25',
-    #         'AU26', 'AU45', 'Progress', 'Picture Side', 'Activity']
-    #for ii, header in enumerate(headers):+
-    # for num_models in np.arange(4,7):
-    #     for incr in np.linspace(0.005, 0.5, 15):
-    #         main(num_models=num_models,k=4,data_name = 'dataset1_vid',incr=incr)
-    main(num_models=4,k=4,data_name='dataset1_vid',incr=0.05,plot_bool=True)
+    cols = ['Activity Ind', 'Video Time', 'Head Proximity', 'Head Orientation', 'Gaze Direction', 'Eye Aspect Ratio', 'Pupil Ratio', 'AU04', 'AU07', 'AU12', 'AU25', 'AU26', 'AU45', 'Progress', 'Picture Side', 'Activity Type', 'Activity Time']
+    main(feature_set='all')

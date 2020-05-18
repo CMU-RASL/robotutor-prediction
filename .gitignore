@@ -5,9 +5,11 @@
 *.json
 *.pkl
 *.npz
+*.joblib
 dataset*/
-plot_*/
-model_*/
+models/
+prob/
+result/
 
 
 # Byte-compiled / optimized / DLL files
@@ -139,9 +141,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-
-data/
-data2/
-test.py
 
 .DS_Store

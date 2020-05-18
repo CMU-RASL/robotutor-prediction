@@ -2,7 +2,6 @@ import os
 import cv2
 import numpy as np
 import scipy.spatial.transform
-from skimage.measure import compare_ssim
 from skimage.metrics import structural_similarity
 import scipy.misc
 
@@ -208,7 +207,7 @@ def get_activity_type(frame):
     for filename in os.listdir('templates/activities'):
         template_image = cv2.imread('templates/activities/'+filename,cv2.IMREAD_GRAYSCALE)
         activity_names.append(filename[:-4])
-        ssims.append(abs(compare_ssim(template_image, gray)))
+        ssims.append(abs(structural_similarity(template_image, gray)))
 
     ssims = np.array(ssims)
     if np.max(ssims) < 0.7:
@@ -259,9 +258,9 @@ def feedBackType(frame):
     r = rc[rcount.argmax()]
 
     if (np.array_equal(g, [208, 246, 208])):
-        return 1
+        return 2
     elif (np.array_equal(y, [207, 244, 248])):
-        return 0
+        return 1
     elif (np.array_equal(r, [207, 208, 247])):
-        return -1
+        return 0
     return None

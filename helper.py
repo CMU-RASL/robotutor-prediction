@@ -34,44 +34,45 @@ def choose_model(tt, model_split):
             return ii
     return len(model_split)-1
 
-def get_prob(model, x, num_classes):
-    prob = np.zeros(num_classes).astype('float')
-    pred = model.predict_proba(x).flatten()
-    for ii, class_ind in enumerate(model.classes_):
-        prob[int(class_ind)] = pred[ii]
-    return prob
+def get_prob(models, x, num_classes):
+    pred = np.zeros((len(models)))
+    for ii, model in enumerate(models):
+        pred[ii] = model.score_samples(x)[0]
+    pred = np.exp(pred)
+    return pred
 
 def get_metrics(conf_mats, num_classes):
-    if num_classes == 2:
-        acc = np.empty((conf_mats.shape[0], 1))
-    else:
-        acc = np.empty((conf_mats.shape[0], 3))
-
+    # if num_classes == 2:
+    #     acc = np.empty((conf_mats.shape[0], 1))
+    # else:
+    #     acc = np.empty((conf_mats.shape[0], 3))
+    acc = np.empty((conf_mats.shape[0], 1))
     for ind in range(conf_mats.shape[0]):
         conf_mat = conf_mats[ind, :, :]
-        if num_classes == 2:
-            cur_class = 1
-            not_cur_class = 0
-            tp = conf_mat[cur_class,cur_class].astype('float')
-            tn = conf_mat[not_cur_class,not_cur_class].astype('float')
-            fp = conf_mat[not_cur_class,cur_class].astype('float')
-            fn = conf_mat[cur_class,not_cur_class].astype('float')
-            # tpr = tp/(tp + fn + 1e-6)
-            # fpr = fp/(fp + tn + 1e-6)
-            acc[ind, 0] = (tp + tn)/(tp + tn + fp + fn + 1e-6)
-        else:
-            # tpr = np.empty(3)
-            # fpr = np.empty(3)
-            for cur_class in range(num_classes):
-                not_cur_class = list(range(num_classes))
-                not_cur_class.remove(cur_class)
-                tp = conf_mat[cur_class,cur_class].astype('float')
-                tn = np.sum(conf_mat[not_cur_class,not_cur_class]).astype('float')
-                fp = np.sum(conf_mat[not_cur_class,cur_class]).astype('float')
-                fn = np.sum(conf_mat[cur_class,not_cur_class]).astype('float')
-                # tpr[cur_class] = tp/(tp + fn + 1e-6)
-                # fpr[cur_class] = fp/(fp + tn + 1e-6)
-                acc[ind, cur_class] = (tp + tn)/(tp + tn + fp + fn + 1e-6)
+        acc[ind, 0] = np.trace(conf_mat)/(np.sum(conf_mat) + 1e-5)
+        # if num_classes == 2:
+        #     cur_class = 1
+        #     not_cur_class = 0
+        #     tp = conf_mat[cur_class,cur_class].astype('float')
+        #     tn = conf_mat[not_cur_class,not_cur_class].astype('float')
+        #     fp = conf_mat[not_cur_class,cur_class].astype('float')
+        #     fn = conf_mat[cur_class,not_cur_class].astype('float')
+        #     # tpr = tp/(tp + fn + 1e-6)
+        #     # fpr = fp/(fp + tn + 1e-6)
+        #     acc[ind, 0] = (tp + tn)/(tp + tn + fp + fn + 1e-6)
+        # else:
+        #     # tpr = np.empty(3)
+        #     # fpr = np.empty(3)
+        #     for cur_class in range(num_classes):
+        #         not_cur_class = list(range(num_classes))
+        #         not_cur_class.remove(cur_class)
+        #         tp = conf_mat[cur_class,cur_class].astype('float')
+        #         tn = np.sum(conf_mat[not_cur_class,not_cur_class]).astype('float')
+        #         fp = np.sum(conf_mat[not_cur_class,cur_class]).astype('float')
+        #         fn = np.sum(conf_mat[cur_class,not_cur_class]).astype('float')
+        #         # tpr[cur_class] = tp/(tp + fn + 1e-6)
+        #         # fpr[cur_class] = fp/(fp + tn + 1e-6)
+        #         acc[ind, cur_class] = (tp + tn)/(tp + tn + fp + fn + 1e-6)
 
     return acc
 
@@ -133,10 +134,24 @@ def generate_picture_side():
     for ii in range(len(video_filenames)):
         picture_side(folder_name, video_filenames[ii])
 
-def filter_data(X, Y1, Y2, T, feat_names):
+def filter_data(X, Y1, Y2, T, feat_names, feature_set, sensitivity_col):
+    face_col_names = ['Head Proximity', 'Head Orientation', 'Gaze Direction', 'Eye Aspect Ratio', 'Pupil Ratio', 'AU04', 'AU07', 'AU12', 'AU25', 'AU26', 'AU45']
+    context_col_names = ['Activity Ind', 'Video Time', 'Progress', 'Picture Side', 'Activity Type', 'Activity Time']
     success_col = feat_names.index('Success')
     confidence_col = feat_names.index('Confidence')
-    cols_to_select = [x for x in range(len(feat_names)) if x != success_col and x != confidence_col]
+
+    cols_to_remove = [success_col, confidence_col]
+    if not sensitivity_col == 'None':
+        cols_to_remove.append(feat_names.index(sensitivity_col))
+    if feature_set == 'context':
+        for col_name in face_col_names:
+            cols_to_remove.append(feat_names.index(col_name))
+    if feature_set == 'face':
+        for col_name in context_col_names:
+            cols_to_remove.append(feat_names.index(col_name))
+
+    cols_to_select = [x for x in range(len(feat_names)) if not x in cols_to_remove]
+
     new_X, new_Y1, new_Y2, new_T = [], [], [], []
     for xx, yy1, yy2, tt in zip(X, Y1, Y2, T):
         inds_to_keep = np.where(xx[:,success_col] > 0)[0]
