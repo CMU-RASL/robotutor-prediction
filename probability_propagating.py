@@ -46,6 +46,7 @@ def propogate(params):
         #     print(np.round(model_probs[ii,:], decimals=2), np.round(probs[ii,:], decimals=2))
 
         prev_prob = probs[ii,:]
+
     label = y[-1].astype('int')[0]
 
     pred_labels = np.empty_like(thresh_arr).astype('int')
@@ -114,31 +115,6 @@ def run_models(X, Y, T, models, thresh_arr, class_weight, num_classes = 3,
                     thresh_arr, class_weight, img_name, name, ii, len(X),
                     plot_graphs, mode_label)))
 
-    # pool = Pool(processes=num_workers)
-    # res = pool.map(propogate, params)
+    acc, early_mats = get_metrics(res, thresh_arr, num_classes)
 
-    num_thresh = thresh_arr.shape[0]
-    conf_mats = np.zeros((num_thresh,num_classes,num_classes))
-
-    all_res = np.zeros((num_thresh, len(X)))
-    early_mats = np.zeros((num_thresh, len(res)))
-
-    for ii, (label, pred_labels, earliness) in enumerate(res):
-        for thresh_ind, pred_label, early in zip(range(num_thresh), pred_labels, earliness):
-            conf_mats[thresh_ind, label, pred_label] += 1
-            if label == pred_label:
-                all_res[thresh_ind, ii] = 1
-            early_mats[thresh_ind, ii] = early
-    early_mats = np.mean(early_mats, axis=1)
-
-    if plot_confusions:
-        for thresh_ind, thresh in enumerate(thresh_arr):
-            full_img_name = '{}_{:.4f}_Confusion.png'.format(img_name, thresh, ii)
-
-            legend = legend_from_ind(num_classes)
-            plot_confusion_matrix(conf_mats[thresh_ind, :, :], num_classes, legend, name,
-                    full_img_name)
-
-    acc = get_metrics(conf_mats, num_classes)
-    #thresh_not_reached_arr, len(X)*np.ones_like(thresh_not_reached_arr)
-    return acc, all_res, early_mats
+    return acc, early_mats

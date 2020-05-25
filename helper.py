@@ -1,6 +1,8 @@
 import numpy as np
 import os
 import cv2
+import stat
+
 
 def remove_readonly(func, path, excinfo):
     os.chmod(path, stat.S_IWRITE)
@@ -41,40 +43,25 @@ def get_prob(models, x, num_classes):
     pred = np.exp(pred)
     return pred
 
-def get_metrics(conf_mats, num_classes):
-    # if num_classes == 2:
-    #     acc = np.empty((conf_mats.shape[0], 1))
-    # else:
-    #     acc = np.empty((conf_mats.shape[0], 3))
+def get_metrics(res, thresh_arr, num_classes):
+    num_thresh = thresh_arr.shape[0]
+    conf_mats = np.zeros((num_thresh,num_classes,num_classes))
+
+    early_mats = np.zeros((num_thresh, len(res)))
+
+    for ii, (label, pred_labels, earliness) in enumerate(res):
+        for thresh_ind, pred_label, early in zip(range(num_thresh), pred_labels, earliness):
+            conf_mats[thresh_ind, label, pred_label] += 1
+            early_mats[thresh_ind, ii] = early
+
+    early_mats = np.mean(early_mats, axis=1)
     acc = np.empty((conf_mats.shape[0], 1))
+
     for ind in range(conf_mats.shape[0]):
         conf_mat = conf_mats[ind, :, :]
         acc[ind, 0] = np.trace(conf_mat)/(np.sum(conf_mat) + 1e-5)
-        # if num_classes == 2:
-        #     cur_class = 1
-        #     not_cur_class = 0
-        #     tp = conf_mat[cur_class,cur_class].astype('float')
-        #     tn = conf_mat[not_cur_class,not_cur_class].astype('float')
-        #     fp = conf_mat[not_cur_class,cur_class].astype('float')
-        #     fn = conf_mat[cur_class,not_cur_class].astype('float')
-        #     # tpr = tp/(tp + fn + 1e-6)
-        #     # fpr = fp/(fp + tn + 1e-6)
-        #     acc[ind, 0] = (tp + tn)/(tp + tn + fp + fn + 1e-6)
-        # else:
-        #     # tpr = np.empty(3)
-        #     # fpr = np.empty(3)
-        #     for cur_class in range(num_classes):
-        #         not_cur_class = list(range(num_classes))
-        #         not_cur_class.remove(cur_class)
-        #         tp = conf_mat[cur_class,cur_class].astype('float')
-        #         tn = np.sum(conf_mat[not_cur_class,not_cur_class]).astype('float')
-        #         fp = np.sum(conf_mat[not_cur_class,cur_class]).astype('float')
-        #         fn = np.sum(conf_mat[cur_class,not_cur_class]).astype('float')
-        #         # tpr[cur_class] = tp/(tp + fn + 1e-6)
-        #         # fpr[cur_class] = fp/(fp + tn + 1e-6)
-        #         acc[ind, cur_class] = (tp + tn)/(tp + tn + fp + fn + 1e-6)
 
-    return acc
+    return acc, early_mats
 
 def picture_side(folder_name, video_filename):
 

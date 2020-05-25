@@ -28,7 +28,7 @@ def plot_probability(t, prob, legend, title, result, count_text, filename):
                  transform=ax.transAxes, bbox=dict(boxstyle="round",
                                                    alpha=0.2, fc="k"))
     plt.tight_layout()
-    plt.savefig(filename)
+    plt.savefig('plot//'+filename)
     plt.close()
 
 def plot_confusion_matrix(conf_mat, num_classes, legend, name, filename):
@@ -63,7 +63,7 @@ def plot_confusion_matrix(conf_mat, num_classes, legend, name, filename):
     if 'prob_test' in filename:
         filename = filename.replace('prob_test', 'confusion')
 
-    plt.savefig(filename)
+    plt.savefig('plot//'+filename)
     plt.close()
 
 def plot_rocs(fprs, tprs, thresh_arr, name, filename):

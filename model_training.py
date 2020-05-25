@@ -73,7 +73,7 @@ def fit_model(params):
 
             dump(model, 'models//' + foldername + '//' + filename + str(class_num) + '.joblib')
 
-            print('\t Fit Model {}/{}'.format(len(listdir(foldername)), tot_model_num))
+            print('\t Fit Model {}/{}'.format(len(listdir('models//'+foldername)), tot_model_num))
 
 def load_model(filename, foldername):
     model = load('models//'+foldername + '//' + filename)
@@ -83,10 +83,12 @@ def create_all_models(foldername, num_models, class_num_arr,
     num_workers, X, Ys, T, train_inds, model_bool,component_num):
 
     tot_model_num = [0,0]
-    model_split = [np.empty((len(train_inds), num_models[0]+1)),np.empty((len(train_inds), num_models[1]+1))]
+    model_split = [np.empty((len(train_inds), num_models[0]+1)),
+            np.empty((len(train_inds), num_models[1]+1))]
     for model_type in range(len(model_split)):
         for fold_ind in range(len(train_inds)):
-            split = find_model_split([T[ii] for ii in train_inds[fold_ind] ], num_models[model_type])
+            split = find_model_split([T[ii] for ii in train_inds[fold_ind] ],
+                        num_models[model_type])
             model_split[model_type][fold_ind, :] = split
             tot_model_num[model_type] += len(split)-1
         tot_model_num[model_type] = tot_model_num[model_type]*class_num_arr[model_type]
@@ -116,7 +118,8 @@ def create_all_models(foldername, num_models, class_num_arr,
 
     return model_split
 
-def get_acc(model_foldername, modeltype_ind, model_split, fold_ind, k, Xk, Yk, Tk, thresh_arr, class_weight, num_classes, plot_foldername, plot_bool):
+def get_acc(model_foldername, modeltype_ind, model_split, fold_ind, k, Xk,
+        Yk, Tk, thresh_arr, class_weight, num_classes, plot_foldername, plot_bool):
     cur_model_arr = [[],[]]
     for model_start_ind in range(model_split.shape[0]-1):
         #Load the models into the area
@@ -128,7 +131,7 @@ def get_acc(model_foldername, modeltype_ind, model_split, fold_ind, k, Xk, Yk, T
                     modeltype_ind, start_val, end_val, fold_ind, class_num)
 
             if not model_name in listdir('models//'+model_foldername):
-                print('\t Could not find {}'.format(model_name))
+                print('\t Could not find {}'.format(model_foldername+'//'+model_name))
                 return
             else:
                 model = load_model(model_name, model_foldername)
@@ -142,11 +145,11 @@ def get_acc(model_foldername, modeltype_ind, model_split, fold_ind, k, Xk, Yk, T
     else:
         label = 'Backbutton'
     print('\t {} - Fold {}/{}'.format(label, fold_ind+1, k))
-    acc, all_res, early_mats = run_models(Xk, Yk, Tk, cur_model_arr,
+    acc, early = run_models(Xk, Yk, Tk, cur_model_arr,
                     thresh_arr, class_weight, num_classes =
                     num_classes,
                     plot_graphs = plot_bool,
                     plot_confusions = plot_bool, name = 'test',
                     img_name = plot_foldername + '//prob_test_', incr=None)
 
-    return acc.flatten(), all_res.flatten(), early_mats.flatten()
+    return acc.flatten(), early.flatten()
