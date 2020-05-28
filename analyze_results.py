@@ -307,4 +307,4 @@ def get_fractions():
     print('No Backbutton {} ({:.1%})'.format(backbutton2_count[0], backbutton2_count[0]/backbutton2.shape[0]))
     print('Backbutton {} ({:.1%})'.format(backbutton2_count[1], backbutton2_count[1]/backbutton2.shape[0]))
 
-hypothesisI()
+get_fractions()

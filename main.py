@@ -14,7 +14,7 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
     print('Setting Parameters:')
 
     #Hyperparameter arrays
-    thresh_arr = np.linspace(0.5, 1.0, 10)
+    thresh_arr = np.arange(0.55, 1.0, 0.05)
     num_thresh = thresh_arr.shape[0]
 
     num_model_arr = np.arange(1, 3).astype('int')
@@ -23,7 +23,7 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
     num_component_arr = np.arange(6, 7).astype('int')
     num_components = num_component_arr.shape[0]
 
-    str_params = 'thresh_{:.4}_{:.4}_{:.4}'.format(np.min(thresh_arr),
+    str_params = 'thresh_{:.4}_{:.4}_{:.4}_guess'.format(np.min(thresh_arr),
                 np.max(thresh_arr), thresh_arr[1]-thresh_arr[0])
 
     class_num_arr = [3, 2]
@@ -52,6 +52,8 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
 
     test_accs = np.zeros((2, k, num_model, num_components, num_thresh))
     test_early = np.zeros((2, k, num_model, num_components, num_thresh))
+    tot_num = 2*k*num_model*num_components
+    cur_num = 1
 
     for model_num_ind, model_num in enumerate(num_model_arr):
         for component_num_ind, component_num in enumerate(num_component_arr):
@@ -76,16 +78,14 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
                                 data_name, k, model_num, component_num, feature_set, col_to_remove)
             if model_foldername in listdir('models'):
                 model_bool = False
-                # print('\t Model {} Already Exists - Training Complete'.format(model_foldername))
-                # rmtree(model_foldername, onerror=remove_readonly)
             else:
                 model_bool = True
                 mkdir('models//'+model_foldername)
 
             #Create Models
-            print('\t Creating Models for Model Num {}/{}, Component Num {}/{}'.format(
-                        model_num_ind+1, len(num_model_arr), component_num_ind+1,
-                        len(num_component_arr)))
+            # print('\t Creating Models for Model Num {}/{}, Component Num {}/{}'.format(
+            #             model_num_ind+1, len(num_model_arr), component_num_ind+1,
+            #             len(num_component_arr)))
             model_split = create_all_models(model_foldername, [model_num,model_num],
                 class_num_arr, num_workers, X, Ys, T, train_inds, model_bool, component_num)
 
@@ -120,6 +120,8 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
                                         modeltype_ind, model_split[modeltype_ind][fold_ind,:],
                                         fold_ind, k, Xk, Yk, Tk, thresh_arr, class_weight,
                                         class_num_arr[modeltype_ind], plot_foldername, plot_bool)
+                        print('{}/{}'.format(cur_num, tot_num))
+                        cur_num+=1
                     #Save data
                     my_data = {'accs': test_accs[modeltype_ind, :, model_num_ind, component_num_ind, :],
                             'earliness': test_early[modeltype_ind, :, model_num_ind, component_num_ind, :]}

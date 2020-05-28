@@ -41,6 +41,7 @@ def get_prob(models, x, num_classes):
     for ii, model in enumerate(models):
         pred[ii] = model.score_samples(x)[0]
     pred = np.exp(pred)
+    # pred = pred / np.sum(pred)
     return pred
 
 def get_metrics(res, thresh_arr, num_classes):
@@ -51,15 +52,19 @@ def get_metrics(res, thresh_arr, num_classes):
 
     for ii, (label, pred_labels, earliness) in enumerate(res):
         for thresh_ind, pred_label, early in zip(range(num_thresh), pred_labels, earliness):
-            conf_mats[thresh_ind, label, pred_label] += 1
-            early_mats[thresh_ind, ii] = early
+            if pred_label < 5:
+                conf_mats[thresh_ind, label, pred_label] += 1
+                early_mats[thresh_ind, ii] = early
 
     early_mats = np.mean(early_mats, axis=1)
     acc = np.empty((conf_mats.shape[0], 1))
 
     for ind in range(conf_mats.shape[0]):
         conf_mat = conf_mats[ind, :, :]
-        acc[ind, 0] = np.trace(conf_mat)/(np.sum(conf_mat) + 1e-5)
+        if np.sum(conf_mat) < 1e-6:
+            acc[ind, 0] = np.trace(conf_mat)/(np.sum(conf_mat) + 1e-6)
+        else:
+            acc[ind, 0] = np.trace(conf_mat)/(np.sum(conf_mat))
 
     return acc, early_mats
 

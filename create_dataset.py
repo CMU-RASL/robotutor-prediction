@@ -30,8 +30,8 @@ def read_feature_csv(filename, activity_name, activity_num):
     x = np.array(feat)
     t = np.array(time)
     x = np.hstack((x, t.reshape(-1,1)))
-    y1 = (np.ones_like(t)*feedback).reshape(-1,1)
-    y2 = (np.ones_like(t)*backbutton).reshape(-1,1)
+    y1 = (np.ones_like(t)*feedback).reshape(-1,1).astype('int')
+    y2 = (np.ones_like(t)*backbutton).reshape(-1,1).astype('int')
     headers.append('Activity Time')
     return t, x, y1, y2, headers
 
@@ -49,14 +49,14 @@ def get_num_activities(foldername):
 
 def main():
     foldername = 'dataset2/csvs'
-    result_filename = 'dataset2.pkl'
+    result_filename = 'dataset2_mod.pkl'
 
     T = []
     X = []
     Y1 = []
     Y2 = []
     # info = []
-
+    tots = np.zeros((2, 3))
     num_activities = get_num_activities(foldername)
     for ii, filename in enumerate(os.listdir(foldername)):
         res = filename.split('_')
@@ -67,13 +67,17 @@ def main():
 
         if vid_ind and float(activity_ind) < num_activities[int(vid_ind)]:
             tt, xx, yy1, yy2, headers = read_feature_csv(foldername + '/' + filename, activity_name, float(activity_ind)/num_activities[int(vid_ind)])
-            T.append(tt)
-            X.append(xx)
-            Y1.append(yy1)
-            Y2.append(yy2)
+            if np.sum(tots[0,:]) < 20 or (tots[0,yy1[0,0]]/np.sum(tots[0,:]) < 0.6 and tots[1,yy2[0,0]]/np.sum(tots[0,:]) < 0.6):
+                T.append(tt)
+                X.append(xx)
+                Y1.append(yy1)
+                Y2.append(yy2)
 
-        if ii % 10 == 0:
-            print('Finished {}/{}'.format(ii+1, len(os.listdir(foldername))))
+                tots[0, yy1[0,0]] += 1
+                tots[1, yy2[0,0]] +=1
+                print(np.round(tots[0,:]/np.sum(tots[0,:])*100, decimals=2), np.round(tots[1,:]/np.sum(tots[0,:])*100, decimals=2))
+        # if ii % 10 == 0:
+        #     print('Finished {}/{}'.format(ii+1, len(os.listdir(foldername))))
 
     print('Total Number of Activities', len(X))
     my_data = {'X': X, 'Y1': Y1, 'Y2': Y2, 'T': T, 'feat_names': headers}

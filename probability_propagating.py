@@ -20,8 +20,6 @@ def propogate(params):
     probs = np.zeros((new_t.shape[0], num_classes))
     probs[0,:] = prev_prob
 
-    # model_probs = np.zeros((new_t.shape[0], num_classes))
-    # prev_t_ii = -1
     for ii, tt in enumerate(new_t[1:]):
         cur_inds = np.where((t <= tt) & (t >= tt-step))[0]
 
@@ -31,19 +29,13 @@ def propogate(params):
 
         model_ind = choose_model(t[cur_inds[-1]], models[0])
         avg_x = np.mean(x[cur_inds,:], axis=0).reshape(1, x[0,:].shape[0])
+
         model_prob = get_prob(models[1][model_ind], avg_x, num_classes)
         model_prob[model_prob < 1e-6] = 1e-6
         prev_prob[prev_prob < 1e-6] = 1e-6
+
         probs[ii+1,:] = model_prob*class_weight*prev_prob
         probs[ii+1,:] = probs[ii+1,:]/(np.sum(probs[ii+1,:]))
-        # probs[ii+1,:] = prev_prob + 0.01*(ii - prev_t_ii)*(model_prob - prev_prob)
-        # probs[ii+1,:] = probs[ii+1,:]/np.sum(probs[ii+1,:])
-        # prev_t_ii = ii
-        # probs[ii+1,:] = model_prob*prev_prob
-
-
-        # if cur_series == 10:
-        #     print(np.round(model_probs[ii,:], decimals=2), np.round(probs[ii,:], decimals=2))
 
         prev_prob = probs[ii,:]
 
@@ -68,38 +60,45 @@ def propogate(params):
         else:
             ind_of_classification = max_inds[pred_label]
 
-        if plot_graphs:
-            if ind_of_classification == -1:
-                count_text = "{:.0%} Threshold\nClassified at: end".format(
-                    thresh)
-            else:
-                count_text = "{:.0%} Threshold\nClassified at: {} sec".format(
-                        thresh, new_t[ind_of_classification])
-
-            legend = legend_from_ind(num_classes)
-
-            title = "{}: {}/{}\n True Label: {}, Predicted Label: {}".format(name,
-                     cur_series+1, num_series, class_name_from_ind(label, num_classes),
-                     class_name_from_ind(pred_label, num_classes))
-
-            if label == pred_label:
-                result = 'Correct'
-            else:
-                result = 'Incorrect'
-
-            full_img_name = '{}_{:.4f}_Series_{:03d}.png'.format(img_name, thresh, cur_series)
-
-            plot_probability(new_t, probs, legend, title, result, count_text,
-                    full_img_name)
+        # if plot_graphs:
+        #     if ind_of_classification == -1:
+        #         count_text = "{:.0%} Threshold\nClassified at: end".format(
+        #             thresh)
+        #     else:
+        #         count_text = "{:.0%} Threshold\nClassified at: {} sec".format(
+        #                 thresh, new_t[ind_of_classification])
+        #
+        #     legend = legend_from_ind(num_classes)
+        #
+        #     title = "{}: {}/{}\n True Label: {}, Predicted Label: {}".format(name,
+        #              cur_series+1, num_series, class_name_from_ind(label, num_classes),
+        #              class_name_from_ind(pred_label, num_classes))
+        #
+        #     if label == pred_label:
+        #         result = 'Correct'
+        #     else:
+        #         result = 'Incorrect'
+        #
+        #     full_img_name = '{}_{:.4f}_Series_{:03d}.png'.format(img_name, thresh, cur_series)
+        #
+        #     plot_probability(new_t, probs, legend, title, result, count_text,
+        #             full_img_name)
 
         if ind_of_classification == -1:
             pred_label = mode_label
 
-        pred_labels[thresh_ind] = pred_label
-        earliness[thresh_ind] = (new_t[-1] - new_t[ind_of_classification])/(new_t[-1] + 1e-6)
+        # #Only Guessing
+        # pred_label = mode_label
+        # ind_of_classification = 0
 
-    if cur_series%10 == 0:
-        print('\t\t Probability {}/{}'.format(cur_series+1, num_series))
+        pred_labels[thresh_ind] = pred_label
+        if new_t[-1] < 1e-6:
+            earliness[thresh_ind] = (new_t[-1] - new_t[ind_of_classification])/(new_t[-1] + 1e-6)
+        else:
+            earliness[thresh_ind] = (new_t[-1] - new_t[ind_of_classification])/(new_t[-1])
+
+    # if cur_series%10 == 0:
+    #     print('\t\t Probability {}/{}'.format(cur_series+1, num_series))
 
     return label, pred_labels, earliness
 

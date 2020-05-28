@@ -144,7 +144,7 @@ def get_acc(model_foldername, modeltype_ind, model_split, fold_ind, k, Xk,
         label = 'Feedback'
     else:
         label = 'Backbutton'
-    print('\t {} - Fold {}/{}'.format(label, fold_ind+1, k))
+    # print('\t {} - Fold {}/{}'.format(label, fold_ind+1, k))
     acc, early = run_models(Xk, Yk, Tk, cur_model_arr,
                     thresh_arr, class_weight, num_classes =
                     num_classes,
