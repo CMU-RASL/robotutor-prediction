@@ -36,35 +36,38 @@ def choose_model(tt, model_split):
             return ii
     return len(model_split)-1
 
-def get_prob(models, x, num_classes):
-    pred = np.zeros((len(models)))
-    for ii, model in enumerate(models):
-        pred[ii] = model.score_samples(x)[0]
-    pred = np.exp(pred)
-    # pred = pred / np.sum(pred)
+def get_prob(model, x, num_classes):
+    pred = model.predict_proba(x)
     return pred
 
-def get_metrics(res, thresh_arr, num_classes):
+def get_metrics(res, thresh_arr, incr_arr, num_classes):
+    num_tmp = 0
+
     num_thresh = thresh_arr.shape[0]
-    conf_mats = np.zeros((num_thresh,num_classes,num_classes))
+    num_incr = incr_arr.shape[0]
 
-    early_mats = np.zeros((num_thresh, len(res)))
 
+    early_mats = np.zeros((num_thresh, num_incr, len(res)))
+    conf_mats = np.zeros((num_thresh, num_incr, num_classes, num_classes))
     for ii, (label, pred_labels, earliness) in enumerate(res):
-        for thresh_ind, pred_label, early in zip(range(num_thresh), pred_labels, earliness):
-            if pred_label < 5:
-                conf_mats[thresh_ind, label, pred_label] += 1
-                early_mats[thresh_ind, ii] = early
+        for thresh_ind in range(num_thresh):
+            for incr_ind in range(num_incr):
+                pred_label = pred_labels[incr_ind, thresh_ind]
+                early = earliness[incr_ind, thresh_ind]
+                if pred_label < 5:
+                    conf_mats[thresh_ind, incr_ind, label, pred_label] += 1
+                    early_mats[thresh_ind, incr_ind, ii] = early
 
-    early_mats = np.mean(early_mats, axis=1)
-    acc = np.empty((conf_mats.shape[0], 1))
+    acc = np.zeros((num_thresh, num_incr))
+    for thresh_ind in range(num_thresh):
+        for incr_ind in range(num_incr):
+            conf_mat = conf_mats[thresh_ind, incr_ind, :, :]
+            if np.sum(conf_mat) < 1e-6:
+                acc[thresh_ind, incr_ind] = np.trace(conf_mat)/(np.sum(conf_mat) + 1e-6)
+            else:
+                acc[thresh_ind, incr_ind] = np.trace(conf_mat)/(np.sum(conf_mat))
 
-    for ind in range(conf_mats.shape[0]):
-        conf_mat = conf_mats[ind, :, :]
-        if np.sum(conf_mat) < 1e-6:
-            acc[ind, 0] = np.trace(conf_mat)/(np.sum(conf_mat) + 1e-6)
-        else:
-            acc[ind, 0] = np.trace(conf_mat)/(np.sum(conf_mat))
+    early_mats = np.mean(early_mats, axis=2)
 
     return acc, early_mats
 
