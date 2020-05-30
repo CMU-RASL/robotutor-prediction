@@ -6,7 +6,7 @@ from multiprocessing import Pool
 
 def propogate(params):
     x, y, t, models, num_classes, thresh_arr, class_weight, img_name, name, \
-            cur_series, num_series, plot_graphs, mode_label = params
+            cur_series, num_series, plot_graphs, mode_label, guess_bool = params
 
     step = 1.0
 
@@ -45,51 +45,52 @@ def propogate(params):
     earliness = np.empty_like(thresh_arr)
 
     for thresh_ind, thresh in enumerate(thresh_arr):
-        inds = [np.where(probs[:,class_num] > thresh)[0]
-                for class_num in range(num_classes)]
-        num_inds = [inds[class_num].shape[0] for class_num in range(num_classes)]
-        max_inds = [probs.shape[0]+1 for class_num in range(num_classes)]
-        for class_num in range(num_classes):
-            if num_inds[class_num] > 0:
-                max_inds[class_num] = np.min(inds[class_num])
-
-        pred_label = np.argmin(max_inds)
-        if num_inds[pred_label] == 0:
-            pred_label = num_classes - 2
-            ind_of_classification = -1
-        else:
-            ind_of_classification = max_inds[pred_label]
-
-        # if plot_graphs:
-        #     if ind_of_classification == -1:
-        #         count_text = "{:.0%} Threshold\nClassified at: end".format(
-        #             thresh)
-        #     else:
-        #         count_text = "{:.0%} Threshold\nClassified at: {} sec".format(
-        #                 thresh, new_t[ind_of_classification])
-        #
-        #     legend = legend_from_ind(num_classes)
-        #
-        #     title = "{}: {}/{}\n True Label: {}, Predicted Label: {}".format(name,
-        #              cur_series+1, num_series, class_name_from_ind(label, num_classes),
-        #              class_name_from_ind(pred_label, num_classes))
-        #
-        #     if label == pred_label:
-        #         result = 'Correct'
-        #     else:
-        #         result = 'Incorrect'
-        #
-        #     full_img_name = '{}_{:.4f}_Series_{:03d}.png'.format(img_name, thresh, cur_series)
-        #
-        #     plot_probability(new_t, probs, legend, title, result, count_text,
-        #             full_img_name)
-
-        if ind_of_classification == -1:
+        if guess_bool:
             pred_label = mode_label
+            ind_of_classification = 0
+        else:
+            inds = [np.where(probs[:,class_num] > thresh)[0]
+                    for class_num in range(num_classes)]
 
-        # #Only Guessing
-        # pred_label = mode_label
-        # ind_of_classification = 0
+            num_inds = [inds[class_num].shape[0] for class_num in range(num_classes)]
+            max_inds = [probs.shape[0]+1 for class_num in range(num_classes)]
+            for class_num in range(num_classes):
+                if num_inds[class_num] > 0:
+                    max_inds[class_num] = np.min(inds[class_num])
+
+            pred_label = np.argmin(max_inds)
+            if num_inds[pred_label] == 0:
+                pred_label = num_classes - 2
+                ind_of_classification = -1
+            else:
+                ind_of_classification = max_inds[pred_label]
+
+            #Threshold not met
+            if ind_of_classification == -1:
+                pred_label = mode_label
+        if plot_graphs:
+            if ind_of_classification == -1:
+                count_text = "{:.0%} Threshold\nClassified at: end".format(
+                    thresh)
+            else:
+                count_text = "{:.0%} Threshold\nClassified at: {} sec".format(
+                        thresh, new_t[ind_of_classification])
+
+            legend = legend_from_ind(num_classes)
+
+            title = "{}: {}/{}\n True Label: {}, Predicted Label: {}".format(name,
+                     cur_series+1, num_series, class_name_from_ind(label, num_classes),
+                     class_name_from_ind(pred_label, num_classes))
+
+            if label == pred_label:
+                result = 'Correct'
+            else:
+                result = 'Incorrect'
+
+            full_img_name = '{}_{:.4f}_Series_{:03d}.png'.format(img_name, thresh, cur_series)
+
+            plot_probability(new_t, probs, legend, title, result, count_text,
+                    full_img_name)
 
         pred_labels[thresh_ind] = pred_label
         if new_t[-1] < 1e-6:
@@ -97,22 +98,24 @@ def propogate(params):
         else:
             earliness[thresh_ind] = (new_t[-1] - new_t[ind_of_classification])/(new_t[-1])
 
-    # if cur_series%10 == 0:
-    #     print('\t\t Probability {}/{}'.format(cur_series+1, num_series))
-
     return label, pred_labels, earliness
 
 def run_models(X, Y, T, models, thresh_arr, class_weight, num_classes = 3,
                plot_graphs=False, plot_confusions=False, name='test',
-               img_name = '', num_workers = 3, incr=0.05):
+               img_name = '', num_workers = 3, incr=0.05, guess_bool=True,
+               guess_acc_bool = True):
 
     res = []
     params = []
-    mode_label = np.argmax(class_weight)
+    if guess_acc_bool:
+        mode_label = np.argmax(class_weight)
+    else:
+        mode_label = 10
+
     for ii in range(len(X)):
         res.append(propogate((X[ii], Y[ii], T[ii], models, num_classes,
                     thresh_arr, class_weight, img_name, name, ii, len(X),
-                    plot_graphs, mode_label)))
+                    plot_graphs, mode_label, guess_bool)))
 
     acc, early_mats = get_metrics(res, thresh_arr, num_classes)
 

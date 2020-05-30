@@ -119,7 +119,9 @@ def create_all_models(foldername, num_models, class_num_arr,
     return model_split
 
 def get_acc(model_foldername, modeltype_ind, model_split, fold_ind, k, Xk,
-        Yk, Tk, thresh_arr, class_weight, num_classes, plot_foldername, plot_bool):
+        Yk, Tk, thresh_arr, class_weight, num_classes, plot_foldername, plot_bool,
+        guess_bool=False, guess_acc_bool=True):
+
     cur_model_arr = [[],[]]
     for model_start_ind in range(model_split.shape[0]-1):
         #Load the models into the area
@@ -147,7 +149,8 @@ def get_acc(model_foldername, modeltype_ind, model_split, fold_ind, k, Xk,
     # print('\t {} - Fold {}/{}'.format(label, fold_ind+1, k))
     acc, early = run_models(Xk, Yk, Tk, cur_model_arr,
                     thresh_arr, class_weight, num_classes =
-                    num_classes,
+                    num_classes, guess_bool = guess_bool,
+                    guess_acc_bool = guess_acc_bool,
                     plot_graphs = plot_bool,
                     plot_confusions = plot_bool, name = 'test',
                     img_name = plot_foldername + '//prob_test_', incr=None)

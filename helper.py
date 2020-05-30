@@ -55,6 +55,8 @@ def get_metrics(res, thresh_arr, num_classes):
             if pred_label < 5:
                 conf_mats[thresh_ind, label, pred_label] += 1
                 early_mats[thresh_ind, ii] = early
+            # else:
+            #     conf_mats[thresh_ind, 0, 1] += 1
 
     early_mats = np.mean(early_mats, axis=1)
     acc = np.empty((conf_mats.shape[0], 1))
