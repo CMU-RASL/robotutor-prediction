@@ -3,9 +3,10 @@ from helper import choose_model, class_name_from_ind, get_metrics
 from helper import get_prob, legend_from_ind
 from plotting import plot_probability, plot_confusion_matrix
 from multiprocessing import Pool
+from scipy.special import expit
 
 def propogate(params):
-    x, y, t, models, num_classes, thresh_arr, class_weight, img_name, name, \
+    x, y, t, models, num_classes, A, B, class_weight, img_name, name, \
             cur_series, num_series, plot_graphs, mode_label, guess_bool = params
 
     step = 1.0
@@ -25,6 +26,8 @@ def propogate(params):
 
         if cur_inds.shape[0] == 0:
             probs[ii+1,:] = prev_prob
+            # if cur_series == 9:
+                # print(np.zeros((1,17)))
             continue
 
         model_ind = choose_model(t[cur_inds[-1]], models[0])
@@ -39,16 +42,22 @@ def propogate(params):
 
         prev_prob = probs[ii,:]
 
+        # if cur_series == 9:
+        #     print(avg_x)
+    # print('Done')
     label = y[-1].astype('int')[0]
 
-    pred_labels = np.empty_like(thresh_arr).astype('int')
-    earliness = np.empty_like(thresh_arr)
+    pred_labels = np.empty_like(A).astype('int')
+    earliness = np.empty_like(A)
 
-    for thresh_ind, thresh in enumerate(thresh_arr):
+    for thresh_ind, (aa, bb) in enumerate(zip(A, B)):
         if guess_bool:
             pred_label = mode_label
             ind_of_classification = 0
         else:
+            thresh = aa*np.exp(bb*new_t)
+            thresh[thresh>1.0] = 1.0
+            thresh[thresh<0.3] = 0.3
             inds = [np.where(probs[:,class_num] > thresh)[0]
                     for class_num in range(num_classes)]
 
@@ -70,11 +79,11 @@ def propogate(params):
                 pred_label = mode_label
         if plot_graphs:
             if ind_of_classification == -1:
-                count_text = "{:.0%} Threshold\nClassified at: end".format(
-                    thresh)
+                count_text = "{:.0%}, {:.1%} Threshold\nClassified at: end".format(
+                    aa, bb)
             else:
-                count_text = "{:.0%} Threshold\nClassified at: {} sec".format(
-                        thresh, new_t[ind_of_classification])
+                count_text = "{:.0%}, {:.1%} Threshold\nClassified at: {} sec".format(
+                        aa, bb, new_t[ind_of_classification])
 
             legend = legend_from_ind(num_classes)
 
@@ -87,10 +96,10 @@ def propogate(params):
             else:
                 result = 'Incorrect'
 
-            full_img_name = '{}_{:.4f}_Series_{:03d}.png'.format(img_name, thresh, cur_series)
+            full_img_name = '{}_{:.4}_{:.4}_Series_{:03d}.png'.format(img_name, aa, bb, cur_series+1)
 
             plot_probability(new_t, probs, legend, title, result, count_text,
-                    full_img_name)
+                    full_img_name, thresh)
 
         pred_labels[thresh_ind] = pred_label
         if new_t[-1] < 1e-6:
@@ -100,7 +109,7 @@ def propogate(params):
 
     return label, pred_labels, earliness
 
-def run_models(X, Y, T, models, thresh_arr, class_weight, num_classes = 3,
+def run_models(X, Y, T, models, A, B, class_weight, num_classes = 3,
                plot_graphs=False, plot_confusions=False, name='test',
                img_name = '', num_workers = 3, incr=0.05, guess_bool=True,
                guess_acc_bool = True):
@@ -114,9 +123,9 @@ def run_models(X, Y, T, models, thresh_arr, class_weight, num_classes = 3,
 
     for ii in range(len(X)):
         res.append(propogate((X[ii], Y[ii], T[ii], models, num_classes,
-                    thresh_arr, class_weight, img_name, name, ii, len(X),
+                    A, B, class_weight, img_name, name, ii, len(X),
                     plot_graphs, mode_label, guess_bool)))
 
-    acc, early_mats = get_metrics(res, thresh_arr, num_classes)
+    acc, early_mats = get_metrics(res, A.shape[0], num_classes)
 
     return acc, early_mats

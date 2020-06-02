@@ -44,8 +44,8 @@ def get_prob(models, x, num_classes):
     # pred = pred / np.sum(pred)
     return pred
 
-def get_metrics(res, thresh_arr, num_classes):
-    num_thresh = thresh_arr.shape[0]
+def get_metrics(res, num_thresh, num_classes):
+
     conf_mats = np.zeros((num_thresh,num_classes,num_classes))
 
     early_mats = np.zeros((num_thresh, len(res)))
@@ -55,8 +55,8 @@ def get_metrics(res, thresh_arr, num_classes):
             if pred_label < 5:
                 conf_mats[thresh_ind, label, pred_label] += 1
                 early_mats[thresh_ind, ii] = early
-            # else:
-            #     conf_mats[thresh_ind, 0, 1] += 1
+            else:
+                conf_mats[thresh_ind, 0, 1] += 1
 
     early_mats = np.mean(early_mats, axis=1)
     acc = np.empty((conf_mats.shape[0], 1))

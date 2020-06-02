@@ -49,14 +49,19 @@ def get_num_activities(foldername):
 
 def main():
     foldername = 'dataset2/csvs'
-    result_filename = 'dataset2.pkl'
+    result_filename1 = 'dataset2_back.pkl'
 
     T = []
     X = []
     Y1 = []
     Y2 = []
-    # info = []
 
+    T_1 = []
+    X_1 = []
+    Y1_1 = []
+    Y2_1 = []
+    # info = []
+    tots = np.zeros((2, 3))
     num_activities = get_num_activities(foldername)
     for ii, filename in enumerate(os.listdir(foldername)):
         res = filename.split('_')
@@ -67,19 +72,25 @@ def main():
 
         if vid_ind and float(activity_ind) < num_activities[int(vid_ind)]:
             tt, xx, yy1, yy2, headers = read_feature_csv(foldername + '/' + filename, activity_name, float(activity_ind)/num_activities[int(vid_ind)])
-            T.append(tt)
-            X.append(xx)
-            Y1.append(yy1)
-            Y2.append(yy2)
-        if ii % 10 == 0:
-            print('Finished {}/{}'.format(ii+1, len(os.listdir(foldername))))
+
+            # if (np.sum(tots[0,:]) < 15) or (not yy1[0,0] == 1) or ((tots[0,1]+1)/np.sum(tots[0,:]) < 0.43):
+            if (np.sum(tots[0,:]) < 15) or (not yy2[0,0] == 0) or ((tots[1,0]+1)/np.sum(tots[1,:]) < 0.6):
+                tots[0, yy1[0,0]] += 1
+                tots[1, yy2[0,0]] +=1
+                print(np.round(tots[0,:]/np.sum(tots[0,:])*100, decimals=2), np.round(tots[1,:]/np.sum(tots[0,:])*100, decimals=2))
+                T.append(tt)
+                X.append(xx)
+                Y1.append(yy1)
+                Y2.append(yy2)
+        # if ii % 10 == 0:
+        #     print('Finished {}/{}'.format(ii+1, len(os.listdir(foldername))))
 
     print('Total Number of Activities', len(X))
     my_data = {'X': X, 'Y1': Y1, 'Y2': Y2, 'T': T, 'feat_names': headers}
-    output = open(result_filename, 'wb')
+    output = open(result_filename1, 'wb')
     dump(my_data, output)
     output.close()
-    print('Saved to:', result_filename)
+    print('Saved to:', result_filename1)
 
 if __name__ == '__main__':
     main()

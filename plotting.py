@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from helper import class_name_from_ind
 
-def plot_probability(t, prob, legend, title, result, count_text, filename):
+def plot_probability(t, prob, legend, title, result, count_text, filename, thresh):
 
     fig = plt.figure(figsize=(10, 5))
     ax = plt.gca()
@@ -14,6 +14,7 @@ def plot_probability(t, prob, legend, title, result, count_text, filename):
 
     for ii, label in enumerate(legend):
         plt.plot(t, prob[:,ii], colors[ii], label=label)
+    plt.plot(t, thresh, 'k')
     plt.ylim([0, 1])
     plt.title(title, fontsize=20)
     plt.legend(fontsize=18, bbox_to_anchor=(1, 1))

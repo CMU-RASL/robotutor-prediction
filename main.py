@@ -7,15 +7,20 @@ from pickle import dump, load
 from timeit import default_timer as timer
 
 def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
-    col_to_remove='None'):
+    col_to_remove='None', alpha=0.7):
 
     start = timer()
     print('_________________')
     print('Setting Parameters:')
 
     #Hyperparameter arrays
-    thresh_arr = np.arange(0.50, 1.0, 0.05)
-    num_thresh = thresh_arr.shape[0]
+    aa = np.arange(0.55, 1.0, 0.05)
+    bb = np.arange(-0.3, 0.3, 0.05)
+
+    A, B = np.meshgrid(aa, bb)
+    A = A.flatten()
+    B = B.flatten()
+    num_thresh = A.shape[0]
 
     num_model_arr = np.arange(1, 7).astype('int')
     num_model = num_model_arr.shape[0]
@@ -23,8 +28,8 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
     num_component_arr = np.arange(1, 7).astype('int')
     num_components = num_component_arr.shape[0]
 
-    str_params = 'thresh_{:.4}_{:.4}_{:.4}'.format(np.min(thresh_arr),
-                np.max(thresh_arr), thresh_arr[1]-thresh_arr[0])
+    str_params = 'thresh_{:.4}_{:.4}_{:.4}_{:.4}_{:.4}_{:.4}'.format(
+        np.min(A), np.max(A), A[1]-A[0], np.min(B), np.max(B), B[1]-B[0])
 
     class_num_arr = [3, 2]
     modeltype_name_arr = ['Feedback', 'Backbutton']
@@ -82,10 +87,6 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
                 model_bool = True
                 mkdir('models//'+model_foldername)
 
-            #Create Models
-            # print('\t Creating Models for Model Num {}/{}, Component Num {}/{}'.format(
-            #             model_num_ind+1, len(num_model_arr), component_num_ind+1,
-            #             len(num_component_arr)))
             model_split = create_all_models(model_foldername, [model_num,model_num],
                 class_num_arr, num_workers, X, Ys, T, train_inds, model_bool, component_num)
 
@@ -101,12 +102,11 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
                                 data_name, k, modeltype_ind, model_num, component_num, str_params, feature_set, col_to_remove)
 
                 #Load probability if exists
-                if filename in listdir('prob'):
+                if not filename in listdir('prob'):
                     with open('prob//'+filename, 'rb') as f:
                         tmpdata = load(f)
                     test_accs[modeltype_ind, :, model_num_ind, component_num_ind, :] = tmpdata['accs']
                     test_early[modeltype_ind, :, model_num_ind, component_num_ind, :] = tmpdata['earliness']
-
                 #Otherwise, cross-validation
                 else:
                     for fold_ind in range(len(train_inds)):
@@ -118,11 +118,10 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
                         test_accs[modeltype_ind, fold_ind, model_num_ind, component_num_ind, :] ,\
                         test_early[modeltype_ind, fold_ind, model_num_ind, component_num_ind, :] = get_acc(model_foldername,
                                         modeltype_ind, model_split[modeltype_ind][fold_ind,:],
-                                        fold_ind, k, Xk, Yk, Tk, thresh_arr, class_weight,
+                                        fold_ind, k, Xk, Yk, Tk, A, B, class_weight,
                                         class_num_arr[modeltype_ind], plot_foldername, plot_bool)
                         print('{}/{}'.format(cur_num, tot_num))
                         cur_num+=1
-
                     #Save data
                     my_data = {'accs': test_accs[modeltype_ind, :, model_num_ind, component_num_ind, :],
                             'earliness': test_early[modeltype_ind, :, model_num_ind, component_num_ind, :]}
@@ -131,9 +130,8 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
 
     print('_________________')
     print('Choosing Hyperparameters:')
-    alpha = 0.7
     best_params = []
-    best_inds = []
+    best_vals = []
     for modeltype_ind in range(len(model_split)):
 
         #Average over classes and folds
@@ -146,31 +144,40 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
         ind1, ind2, ind3 = np.where(metric == max_metric)
         best_model_num = num_model_arr[ind1]
         best_component_num = num_component_arr[ind2]
-        best_thresh = thresh_arr[ind3]
+        best_A = A[ind3]
+        best_B = B[ind3]
         print('')
         print('\t {} - All Best Model Number'.format(modeltype_name_arr[modeltype_ind]), best_model_num)
         print('\t {} - All Best Component Number'.format(modeltype_name_arr[modeltype_ind]), best_component_num)
-        print('\t {} - All Best Thresholds'.format(modeltype_name_arr[modeltype_ind]), np.round(best_thresh, decimals=2))
+        print('\t {} - All Best A'.format(modeltype_name_arr[modeltype_ind]), np.round(best_A, decimals=3))
+        print('\t {} - All Best B'.format(modeltype_name_arr[modeltype_ind]), np.round(best_B, decimals=3))
 
         tmp_ind = 0
-        print('\t {} - Best Model Number {}, Best Component Number {}, Best Threshold {:.5f}, '.format(
-                    modeltype_name_arr[modeltype_ind], best_model_num[tmp_ind], best_component_num[tmp_ind], best_thresh[tmp_ind]))
-        print('\t {} - For best parameters - Metric {:.5f}, Accuracy {:.5f}, Earliness {:.5f}'.format(
-                    modeltype_name_arr[modeltype_ind], max_metric, cur_test_accs[ind1[tmp_ind], ind2[tmp_ind], ind3[tmp_ind]],
-                    cur_test_early[ind1[tmp_ind], ind2[tmp_ind], ind3[tmp_ind]]))
-        best_params.append((best_model_num[tmp_ind], best_component_num[tmp_ind], best_thresh[tmp_ind]))
-        best_inds.append((ind1[tmp_ind], ind2[tmp_ind], ind3[tmp_ind]))
+        all_test_accs = test_accs[modeltype_ind, :, ind1[tmp_ind], ind2[tmp_ind], ind3[tmp_ind]]
+        all_test_early = test_early[modeltype_ind, :, ind1[tmp_ind], ind2[tmp_ind], ind3[tmp_ind]]
+        all_metric = alpha*all_test_accs + (1-alpha)*all_test_early
+        acc_stddev = np.std(all_test_accs)
+        early_stddev = np.std(all_test_early)
+        metric_stddev = np.std(all_metric)
+
+        print('\t {} - Best Model Number {}, Best Component Number {}, Best A {:.5f}, Best B {:.5f}'.format(
+                    modeltype_name_arr[modeltype_ind], best_model_num[tmp_ind], best_component_num[tmp_ind], best_A[tmp_ind], best_B[tmp_ind]))
+        print('\t {} - For best parameters - Metric {:.3%} ({:.4%}), Accuracy {:.3%} ({:.4%}), Earliness {:.3%} ({:.4%})'.format(
+                    modeltype_name_arr[modeltype_ind], max_metric, metric_stddev, cur_test_accs[ind1[tmp_ind], ind2[tmp_ind], ind3[tmp_ind]],
+                    acc_stddev, cur_test_early[ind1[tmp_ind], ind2[tmp_ind], ind3[tmp_ind]], early_stddev))
+        best_params.append((best_model_num[tmp_ind], best_component_num[tmp_ind], best_A[tmp_ind], best_B[tmp_ind]))
+        best_vals.append((all_metric, all_test_accs, all_test_early))
 
 
-    my_data = {'thresh_arr': thresh_arr, 'num_model_arr': num_model_arr,
+    my_data = {'A_arr': A, 'B_arr': B, 'num_model_arr': num_model_arr,
         'num_component_arr': num_component_arr,
         'feat_names': feat_names, 'test_accs': test_accs,
-        'test_early': test_early, 'best_inds': best_inds, 'best_params': best_params}
+        'test_early': test_early, 'best_vals': best_vals, 'best_params': best_params}
 
     if col_to_remove == 'None':
-        result_filename = 'result//result_features_{}.pkl'.format(feature_set)
+        result_filename = 'result//result_alpha_{}_features_{}_modelnum.pkl'.format(alpha, feature_set)
     else:
-        result_filename = 'result//result_features_{}_remove_{}.pkl'.format(feature_set, col_to_remove)
+        result_filename = 'result//result_alpha_{}_features_{}_remove_{}.pkl'.format(alpha, feature_set, col_to_remove)
     with open(result_filename, 'wb') as output:
         dump(my_data, output)
 
@@ -179,9 +186,12 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
 
 
 if __name__ == '__main__':
-    cols = ['Activity Ind', 'Video Time', 'Head Proximity', 'Head Orientation', 'Gaze Direction', 'Eye Aspect Ratio', 'Pupil Ratio', 'AU04', 'AU07', 'AU12', 'AU25', 'AU26', 'AU45', 'Progress', 'Picture Side', 'Activity Type', 'Activity Time']
-    # main(feature_set='context')
-    main(feature_set='all')
+    cols = ['Activity Ind', 'Video Time', 'Head Proximity', 'Head Orientation', 'Gaze Direction', 'Eye Aspect Ratio',
+            'Pupil Ratio', 'AU04', 'AU07', 'AU12', 'AU25', 'AU26', 'AU45', 'Progress', 'Picture Side', 'Activity Type', 'Activity Time']
+    for alpha in [0.7, 1.0]:
+        # main(feature_set='context', alpha = alpha)
+        # main(feature_set='face', alpha = alpha)
+        main(feature_set='all', alpha=alpha)
     # main(feature_set='face')
     # for col in cols:
     #     main(feature_set='all', col_to_remove=col)

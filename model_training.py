@@ -69,6 +69,9 @@ def fit_model(params):
             model = GaussianMixture(n_components=component_num)
             cur_X = flat_train_X[np.where(flat_train_Y == class_num)[0]]
             cur_Y = flat_train_Y[np.where(flat_train_Y == class_num)[0]]
+            if cur_X.shape[0] <component_num + 4:
+                cur_X = np.vstack((cur_X, np.random.rand(10, cur_X.shape[1]) ))
+                cur_Y = np.hstack((cur_Y, class_num*np.ones((10))))
             model.fit(cur_X, cur_Y)
 
             dump(model, 'models//' + foldername + '//' + filename + str(class_num) + '.joblib')
@@ -115,11 +118,13 @@ def create_all_models(foldername, num_models, class_num_arr,
 
         pool = Pool(processes=num_workers)
         pool.map(fit_model, param_vec)
+        # for param in param_vec:
+        #     fit_model(param)
 
     return model_split
 
 def get_acc(model_foldername, modeltype_ind, model_split, fold_ind, k, Xk,
-        Yk, Tk, thresh_arr, class_weight, num_classes, plot_foldername, plot_bool,
+        Yk, Tk, A, B, class_weight, num_classes, plot_foldername, plot_bool,
         guess_bool=False, guess_acc_bool=True):
 
     cur_model_arr = [[],[]]
@@ -148,7 +153,7 @@ def get_acc(model_foldername, modeltype_ind, model_split, fold_ind, k, Xk,
         label = 'Backbutton'
     # print('\t {} - Fold {}/{}'.format(label, fold_ind+1, k))
     acc, early = run_models(Xk, Yk, Tk, cur_model_arr,
-                    thresh_arr, class_weight, num_classes =
+                    A, B, class_weight, num_classes =
                     num_classes, guess_bool = guess_bool,
                     guess_acc_bool = guess_acc_bool,
                     plot_graphs = plot_bool,

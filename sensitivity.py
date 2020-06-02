@@ -6,30 +6,30 @@ from shutil import rmtree
 from pickle import dump, load
 from timeit import default_timer as timer
 
-def main(k=4,data_name='dataset2_back', plot_bool=False,feature_set='all',
-    col_to_remove='None',alpha=1.0, casenum=2, guess_bool = False, guess_acc_bool = True):
+def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
+    col_to_remove='None', alpha=0.7):
 
     start = timer()
     print('_________________')
     print('Setting Parameters:')
 
     #Hyperparameter arrays
-    aa = np.arange(0.55, 1.0, 0.05)
-    bb = np.arange(-0.3, 0.3, 0.05)
+    aa = np.array([0.55, 0.65, 0.95])
+    bb = np.array([-0.1, 0.0, 0.05])
 
     A, B = np.meshgrid(aa, bb)
     A = A.flatten()
     B = B.flatten()
     num_thresh = A.shape[0]
 
-    num_model_arr = np.arange(1, 7).astype('int')
+    num_model_arr = np.array([1, 6])
     num_model = num_model_arr.shape[0]
 
-    num_component_arr = np.arange(1, 7).astype('int')
+    num_component_arr = np.array([1, 4, 6])
     num_components = num_component_arr.shape[0]
 
-    str_params = 'thresh_{:.4}_{:.4}_{:.4}_{:.4}_{:.4}_{:.4}_casenum_{}'.format(
-        np.min(A), np.max(A), A[-1]-A[0], np.min(B), np.max(B), B[-1]-B[0], casenum)
+    str_params = 'thresh_{:.4}_{:.4}_{:.4}_{:.4}_{:.4}_{:.4}'.format(
+        np.min(A), np.max(A), A[1]-A[0], np.min(B), np.max(B), B[1]-B[0])
 
     class_num_arr = [3, 2]
     modeltype_name_arr = ['Feedback', 'Backbutton']
@@ -48,21 +48,9 @@ def main(k=4,data_name='dataset2_back', plot_bool=False,feature_set='all',
     X, Y1, Y2, T, feat_names = filter_data(X, Y1, Y2, T, feat_names,
                                 feature_set, col_to_remove)
     Ys = [Y1, Y2]
-    train_inds, test_inds = get_training_split(len(X), k)
-    print(len(X))
-    return
-    # test_filename = test_name + '.pkl'
-    # #Load data
-    # with open(test_filename, 'rb') as f:
-    #     data = load(f)
-    #
-    # #Filter data
-    # X_test, Y1_test, Y2_test, T_test, feat_names_test = data['X'], data['Y1'], data['Y2'], \
-    #                             data['T'], data['feat_names']
-    # X_test, Y1_test, Y2_test, T_test, feat_names_test = filter_data(X_test, Y1_test, Y2_test, T_test, feat_names_test,
-    #                             feature_set, col_to_remove)
-    # Ys_test = [Y1_test, Y2_test]
 
+    #Training Split
+    train_inds, test_inds = get_training_split(len(X), k)
 
     print('_________________')
     print('Cross-Validation:')
@@ -74,10 +62,25 @@ def main(k=4,data_name='dataset2_back', plot_bool=False,feature_set='all',
 
     for model_num_ind, model_num in enumerate(num_model_arr):
         for component_num_ind, component_num in enumerate(num_component_arr):
+            #Create Plotting Folder
+            if col_to_remove == 'None':
+                plot_foldername = 'plot_data_{}_folds_{}_modelnum_{}_componentnum_{}_{}_features_{}'.format(
+                                data_name, k, model_num, component_num, str_params, feature_set)
+            else:
+                plot_foldername = 'plot_data_{}_folds_{}_modelnum_{}_componentnum_{}_{}_features_{}_remove_{}'.format(
+                                data_name, k, model_num, component_num, str_params, feature_set, col_to_remove)
+            if plot_bool:
+                if plot_foldername in listdir('plot'):
+                    rmtree(plot_foldername, onerror=remove_readonly)
+                mkdir('plot//'+plot_foldername)
 
-            model_foldername = 'model_data_{}_folds_{}_modelnum_{}_componentnum_{}_features_{}'.format(
-                            data_name, k, model_num, component_num, feature_set)
-
+            #Model Folder
+            if col_to_remove == 'None':
+                model_foldername = 'model_data_{}_folds_{}_modelnum_{}_componentnum_{}_features_{}'.format(
+                                data_name, k, model_num, component_num, feature_set)
+            else:
+                model_foldername = 'model_data_{}_folds_{}_modelnum_{}_componentnum_{}_features_{}_remove_{}'.format(
+                                data_name, k, model_num, component_num, feature_set, col_to_remove)
             if model_foldername in listdir('models'):
                 model_bool = False
             else:
@@ -90,8 +93,13 @@ def main(k=4,data_name='dataset2_back', plot_bool=False,feature_set='all',
             #For each modeltype
             for modeltype_ind in range(len(model_split)):
 
-                filename = 'prob_data_{}_folds_{}_modeltype_{}_modelnum_{}_componentnum_{}_{}_features_{}_casenum_{}.pkl'.format(
-                            data_name, k, modeltype_ind, model_num, component_num, str_params, feature_set, casenum)
+                #Prob filename
+                if col_to_remove == 'None':
+                    filename = 'prob_data_{}_folds_{}_modeltype_{}_modelnum_{}_componentnum_{}_{}_features_{}.pkl'.format(
+                                data_name, k, modeltype_ind, model_num, component_num, str_params, feature_set)
+                else:
+                    filename = 'prob_data_{}_folds_{}_modeltype_{}_modelnum_{}_componentnum_{}_{}_features_{}_remove_{}.pkl'.format(
+                                data_name, k, modeltype_ind, model_num, component_num, str_params, feature_set, col_to_remove)
 
                 #Load probability if exists
                 if filename in listdir('prob'):
@@ -99,10 +107,6 @@ def main(k=4,data_name='dataset2_back', plot_bool=False,feature_set='all',
                         tmpdata = load(f)
                     test_accs[modeltype_ind, :, model_num_ind, component_num_ind, :] = tmpdata['accs']
                     test_early[modeltype_ind, :, model_num_ind, component_num_ind, :] = tmpdata['earliness']
-                    for fold_ind in range(len(train_inds)):
-                        class_weight = get_class_weight([Ys[modeltype_ind][ii][-1] for ii in train_inds[fold_ind]],
-                            class_num_arr[modeltype_ind])
-                        # print(class_weight)
                 #Otherwise, cross-validation
                 else:
                     for fold_ind in range(len(train_inds)):
@@ -115,8 +119,7 @@ def main(k=4,data_name='dataset2_back', plot_bool=False,feature_set='all',
                         test_early[modeltype_ind, fold_ind, model_num_ind, component_num_ind, :] = get_acc(model_foldername,
                                         modeltype_ind, model_split[modeltype_ind][fold_ind,:],
                                         fold_ind, k, Xk, Yk, Tk, A, B, class_weight,
-                                        class_num_arr[modeltype_ind], '', False,
-                                        guess_bool, guess_acc_bool)
+                                        class_num_arr[modeltype_ind], plot_foldername, plot_bool)
                         print('{}/{}'.format(cur_num, tot_num))
                         cur_num+=1
                     #Save data
@@ -171,7 +174,10 @@ def main(k=4,data_name='dataset2_back', plot_bool=False,feature_set='all',
         'feat_names': feat_names, 'test_accs': test_accs,
         'test_early': test_early, 'best_vals': best_vals, 'best_params': best_params}
 
-    result_filename = 'result//result_{}_alpha_{}_features_{}_casenum_{}.pkl'.format(alpha, data_name, feature_set, casenum)
+    if col_to_remove == 'None':
+        result_filename = 'result//result_alpha_{}_features_{}.pkl'.format(alpha, feature_set)
+    else:
+        result_filename = 'result//result_alpha_{}_features_{}_remove_{}.pkl'.format(alpha, feature_set, col_to_remove)
     with open(result_filename, 'wb') as output:
         dump(my_data, output)
 
@@ -180,12 +186,8 @@ def main(k=4,data_name='dataset2_back', plot_bool=False,feature_set='all',
 
 
 if __name__ == '__main__':
-    # main(feature_set='all', alpha=1.0, data_name='dataset2_feed', casenum=1, guess_bool=True, guess_acc_bool=True)
-    # main(feature_set='all', alpha=1.0, data_name='dataset2_feed', casenum=2, guess_bool=False, guess_acc_bool=True)
-    # main(feature_set='all', alpha=1.0, data_name='dataset2_feed', casenum=4, guess_bool=False, guess_acc_bool=False)
-    # main(feature_set='all', alpha=1.0, data_name='dataset2_back', casenum=1, guess_bool=True, guess_acc_bool=True)
-    # main(feature_set='all', alpha=1.0, data_name='dataset2_back', casenum=2, guess_bool=False, guess_acc_bool=True)
-    # main(feature_set='all', alpha=1.0, data_name='dataset2_back', casenum=4, guess_bool=False, guess_acc_bool=False)
-
-    main(feature_set='all', alpha=1.0, data_name='dataset2_feed', casenum=3, guess_bool=False, guess_acc_bool=False)
-    main(feature_set='all', alpha=1.0, data_name='dataset2_back', casenum=3, guess_bool=False, guess_acc_bool=False)
+    cols = ['Activity Ind', 'Video Time', 'Head Proximity', 'Head Orientation', 'Gaze Direction', 'Eye Aspect Ratio',
+            'Pupil Ratio', 'AU04', 'AU07', 'AU12', 'AU25', 'AU26', 'AU45', 'Progress', 'Picture Side', 'Activity Type', 'Activity Time']
+    for alpha in [0.7, 1.0]:
+        for col in cols:
+            main(feature_set='all', alpha=alpha, col_to_remove=col)
