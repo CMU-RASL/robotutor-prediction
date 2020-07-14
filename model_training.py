@@ -125,7 +125,7 @@ def create_all_models(foldername, num_models, class_num_arr,
 
 def get_acc(model_foldername, modeltype_ind, model_split, fold_ind, k, Xk,
         Yk, Tk, A, B, class_weight, num_classes, plot_foldername, plot_bool,
-        guess_bool=False, guess_acc_bool=True):
+        guess_bool=False, guess_acc_bool=False):
 
     cur_model_arr = [[],[]]
     for model_start_ind in range(model_split.shape[0]-1):
@@ -152,7 +152,7 @@ def get_acc(model_foldername, modeltype_ind, model_split, fold_ind, k, Xk,
     else:
         label = 'Backbutton'
     # print('\t {} - Fold {}/{}'.format(label, fold_ind+1, k))
-    acc, early = run_models(Xk, Yk, Tk, cur_model_arr,
+    acc, early, thresh_met = run_models(Xk, Yk, Tk, cur_model_arr,
                     A, B, class_weight, num_classes =
                     num_classes, guess_bool = guess_bool,
                     guess_acc_bool = guess_acc_bool,
@@ -160,4 +160,4 @@ def get_acc(model_foldername, modeltype_ind, model_split, fold_ind, k, Xk,
                     plot_confusions = plot_bool, name = 'test',
                     img_name = plot_foldername + '//prob_test_', incr=None)
 
-    return acc.flatten(), early.flatten()
+    return acc.flatten(), early.flatten(), thresh_met.flatten()

@@ -49,6 +49,7 @@ def propogate(params):
 
     pred_labels = np.empty_like(A).astype('int')
     earliness = np.empty_like(A)
+    thresh_met = np.zeros_like(A)
 
     for thresh_ind, (aa, bb) in enumerate(zip(A, B)):
         if guess_bool:
@@ -77,6 +78,9 @@ def propogate(params):
             #Threshold not met
             if ind_of_classification == -1:
                 pred_label = mode_label
+            else:
+                thresh_met[thresh_ind] = 1
+
         if plot_graphs:
             if ind_of_classification == -1:
                 count_text = "{:.0%}, {:.1%} Threshold\nClassified at: end".format(
@@ -107,12 +111,12 @@ def propogate(params):
         else:
             earliness[thresh_ind] = (new_t[-1] - new_t[ind_of_classification])/(new_t[-1])
 
-    return label, pred_labels, earliness
+    return label, pred_labels, earliness, thresh_met
 
 def run_models(X, Y, T, models, A, B, class_weight, num_classes = 3,
                plot_graphs=False, plot_confusions=False, name='test',
-               img_name = '', num_workers = 3, incr=0.05, guess_bool=True,
-               guess_acc_bool = True):
+               img_name = '', num_workers = 3, incr=0.05, guess_bool=False,
+               guess_acc_bool = False):
 
     res = []
     params = []
@@ -126,6 +130,6 @@ def run_models(X, Y, T, models, A, B, class_weight, num_classes = 3,
                     A, B, class_weight, img_name, name, ii, len(X),
                     plot_graphs, mode_label, guess_bool)))
 
-    acc, early_mats = get_metrics(res, A.shape[0], num_classes)
+    acc, early_mats, thresh_met_mats = get_metrics(res, A.shape[0], num_classes)
 
-    return acc, early_mats
+    return acc, early_mats, thresh_met_mats

@@ -49,16 +49,20 @@ def get_metrics(res, num_thresh, num_classes):
     conf_mats = np.zeros((num_thresh,num_classes,num_classes))
 
     early_mats = np.zeros((num_thresh, len(res)))
+    thresh_met_mats = np.zeros((num_thresh, len(res)))
 
-    for ii, (label, pred_labels, earliness) in enumerate(res):
-        for thresh_ind, pred_label, early in zip(range(num_thresh), pred_labels, earliness):
+    for ii, (label, pred_labels, earliness, thresh_met) in enumerate(res):
+        for thresh_ind, pred_label, early, met in zip(range(num_thresh), pred_labels, earliness, thresh_met):
+
             if pred_label < 5:
                 conf_mats[thresh_ind, label, pred_label] += 1
                 early_mats[thresh_ind, ii] = early
-            else:
-                conf_mats[thresh_ind, 0, 1] += 1
+            # else:
+            #     conf_mats[thresh_ind, 0, 1] += 1
+            thresh_met_mats[thresh_ind, ii] += met
 
     early_mats = np.mean(early_mats, axis=1)
+    thresh_met_mats = np.sum(thresh_met_mats, axis=1)/len(res)
     acc = np.empty((conf_mats.shape[0], 1))
 
     for ind in range(conf_mats.shape[0]):
@@ -68,7 +72,7 @@ def get_metrics(res, num_thresh, num_classes):
         else:
             acc[ind, 0] = np.trace(conf_mat)/(np.sum(conf_mat))
 
-    return acc, early_mats
+    return acc, early_mats, thresh_met_mats
 
 def picture_side(folder_name, video_filename):
 
