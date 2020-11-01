@@ -2,7 +2,7 @@ import numpy as np
 import os
 import cv2
 import stat
-
+from sklearn.metrics import f1_score
 
 def remove_readonly(func, path, excinfo):
     os.chmod(path, stat.S_IWRITE)
@@ -50,6 +50,8 @@ def get_metrics(res, num_thresh, num_classes):
 
     early_mats = np.zeros((num_thresh, len(res)))
     thresh_met_mats = np.zeros((num_thresh, len(res)))
+    y_true = np.zeros((num_thresh, len(res)))
+    y_pred = np.zeros((num_thresh, len(res)))
 
     for ii, (label, pred_labels, earliness, thresh_met) in enumerate(res):
         for thresh_ind, pred_label, early, met in zip(range(num_thresh), pred_labels, earliness, thresh_met):
@@ -57,9 +59,10 @@ def get_metrics(res, num_thresh, num_classes):
             if pred_label < 5:
                 conf_mats[thresh_ind, label, pred_label] += 1
                 early_mats[thresh_ind, ii] = early
-            # else:
-            #     conf_mats[thresh_ind, 0, 1] += 1
-            thresh_met_mats[thresh_ind, ii] += met
+                y_true[thresh_ind, ii] = label
+                y_pred[thresh_ind, ii] = pred_label
+                thresh_met_mats[thresh_ind, ii] += met
+
 
     early_mats = np.mean(early_mats, axis=1)
     thresh_met_mats = np.sum(thresh_met_mats, axis=1)/len(res)
@@ -67,11 +70,12 @@ def get_metrics(res, num_thresh, num_classes):
 
     for ind in range(conf_mats.shape[0]):
         conf_mat = conf_mats[ind, :, :]
+
         if np.sum(conf_mat) < 1e-6:
             acc[ind, 0] = np.trace(conf_mat)/(np.sum(conf_mat) + 1e-6)
         else:
             acc[ind, 0] = np.trace(conf_mat)/(np.sum(conf_mat))
-
+        acc[ind,0] = f1_score(y_true[ind,:], y_pred[ind,:], average='weighted')
     return acc, early_mats, thresh_met_mats
 
 def picture_side(folder_name, video_filename):

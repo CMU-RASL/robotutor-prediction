@@ -14,7 +14,8 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
     print('Setting Parameters:')
 
     #Hyperparameter arrays
-    aa = np.arange(0.55, 1.0, 0.05)
+    # aa = np.arange(0.55, 1.0, 0.05)
+    aa = np.array([0.55, 0.7])
     bb = np.array([0.0])
 
     A, B = np.meshgrid(aa, bb)
@@ -22,10 +23,12 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
     B = B.flatten()
     num_thresh = A.shape[0]
 
-    num_model_arr = np.arange(1, 7).astype('int')
+    # num_model_arr = np.arange(1, 2).astype('int')
+    num_model_arr = np.array([2])
     num_model = num_model_arr.shape[0]
 
-    num_component_arr = np.arange(1, 7).astype('int')
+    # num_component_arr = np.arange(1, 7).astype('int')
+    num_component_arr = np.array([3, 5])
     num_components = num_component_arr.shape[0]
 
     # A = np.array([0.8])
@@ -187,6 +190,8 @@ def main(k=10,data_name='dataset2',plot_bool=False,feature_set='all',
                     cur_thresh_met[ind1[tmp_ind], ind2[tmp_ind], ind3[tmp_ind]], thresh_met_stddev))
         best_params.append((best_model_num[tmp_ind], best_component_num[tmp_ind], best_A[tmp_ind], best_B[tmp_ind]))
         best_vals.append((all_metric, all_test_accs, all_test_early, all_thresh_met))
+        print(*all_test_accs, sep=",")
+        print(*all_test_early, sep=",")
 
     my_data = {'A_arr': A, 'B_arr': B, 'num_model_arr': num_model_arr,
         'num_component_arr': num_component_arr,
@@ -225,3 +230,4 @@ if __name__ == '__main__':
     # main(feature_set='face', alpha=0.8)
     for col in cols:
         main(feature_set='all', alpha=0.8, col_to_remove=col)
+        break

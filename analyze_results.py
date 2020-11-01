@@ -7,7 +7,7 @@ import os
 from mpl_toolkits.axes_grid1 import ImageGrid
 
 def hypothesisI():
-    for alpha, beta in zip([0.6, 1.0], [0.2, 0.0]):
+    for alpha, beta in zip([0.7, 1.0], [0.2, 0.0]):
         with open('result//result_alpha_' + str(alpha) + '_beta_' + str(beta) + '_features_all.pkl', 'rb') as f:
             all_feat = pickle.load(f)
         with open('result//result_alpha_' + str(alpha) + '_beta_' + str(beta) + '_features_face.pkl', 'rb') as f:
@@ -192,43 +192,35 @@ def hypothesisIII():
     # plt.show()
 
 def weights():
-    acc_grid = np.zeros((2, 11, 11))
-    early_grid = np.zeros((2, 11, 11))
-    freq_grid = np.zeros((2, 11, 11))
+    acc_grid = np.zeros((2, 11))
+    early_grid = np.zeros((2, 11))
+    freq_grid = np.zeros((2, 11))
     alpha_arr = np.arange(0, 1.1, 0.1)
-    beta_arr = np.arange(0, 1.1, 0.1)
     for alpha_ind, alpha in enumerate(alpha_arr):
-        for beta_ind, beta in enumerate(beta_arr):
-            if 1 - alpha - beta >= -1e-4:
-                result_filename = 'result//result_alpha_{}_beta_{}_features_{}.pkl'.format(alpha, beta, 'all')
-                with open(result_filename, 'rb') as f:
-                    res = pickle.load(f)
-                    acc_grid[0, alpha_ind, beta_ind], acc_grid[1, alpha_ind, beta_ind] = np.mean(res['best_vals'][0][1]), np.mean(res['best_vals'][1][1])
-                    early_grid[0, alpha_ind, beta_ind], early_grid[1, alpha_ind, beta_ind] = np.mean(res['best_vals'][0][2]), np.mean(res['best_vals'][1][2])
-                    freq_grid[0, alpha_ind, beta_ind], freq_grid[1, alpha_ind, beta_ind] = np.mean(res['best_vals'][0][3]), np.mean(res['best_vals'][1][3])
+            result_filename = 'result//result_alpha_{}_features_{}.pkl'.format(alpha, 'all')
+            with open(result_filename, 'rb') as f:
+                res = pickle.load(f)
+                acc_grid[0, alpha_ind], acc_grid[1, alpha_ind] = np.mean(res['best_vals'][0][1]), np.mean(res['best_vals'][1][1])
+                early_grid[0, alpha_ind], early_grid[1, alpha_ind] = np.mean(res['best_vals'][0][2]), np.mean(res['best_vals'][1][2])
+                freq_grid[0, alpha_ind], freq_grid[1, alpha_ind] = np.mean(res['best_vals'][0][3]), np.mean(res['best_vals'][1][3])
+
+    print(np.round(acc_grid, decimals=2))
+    print(np.round(early_grid, decimals=2))
+    print(np.round(freq_grid, decimals=2))
     grids = [acc_grid, early_grid, freq_grid]
     titles = ['Accuracy', 'Earliness', 'Frequency']
-    fig, ax = plt.subplots(2, 3)
+    fig, ax = plt.subplots(1, 2)
     for row in range(2):
-        for col in range(3):
-            im = ax[row, col].imshow(grids[col][row,:,:], vmin=0.4)
-            # We want to show all ticks...
-            ax[row, col].set_xticks(np.arange(len(alpha_arr)))
-            ax[row, col].set_yticks(np.arange(len(beta_arr)))
-            # ... and label them with the respective list entries
-            ax[row, col].set_xticklabels(np.round(alpha_arr, decimals=1))
-            ax[row, col].set_yticklabels(np.round(beta_arr, decimals=1))
-            ax[row, col].set_xlabel('Alpha')
-            ax[row, col].set_ylabel('Beta')
+        im = ax[row, col].imshow(grids[col][row,:,:], vmin=0.4)
+        # We want to show all ticks...
+        ax[row].set_xticks(np.arange(len(alpha_arr)))
+        ax[row].set_yticks(np.arange(len(beta_arr)))
+        # ... and label them with the respective list entries
+        ax[row].set_xticklabels(np.round(alpha_arr, decimals=1))
+        ax[row].set_yticklabels(np.round(beta_arr, decimals=1))
+        ax[row].set_xlabel('Alpha')
+        ax[0, col].set_title(titles[col])
 
-            # Loop over data dimensions and create text annotations.
-            for i in range(len(alpha_arr)):
-                for j in range(len(beta_arr)):
-                    if grids[col][row,i,j] > 0.0:
-                        text = ax[row,col].text(j, i, np.round(grids[col][row,i,j], decimals=2),
-                                       ha="center", va="center", color="k")
-            ax[0, col].set_title(titles[col])
-    fig.tight_layout()
     plt.show()
 
 def sensitivity():
@@ -307,18 +299,24 @@ def sensitivity():
     plt.show()
 
 def get_fractions():
-    filename = 'dataset2_train.pkl'
+    filename = 'dataset2.pkl'
     with open(filename, 'rb') as f:
         data2 = pickle.load(f)
     print(data2['feat_names'])
 
     backbutton2 = np.empty((len(data2['T'])))
     feedback2 = np.empty((len(data2['T'])))
-
-    for ii, (y1, y2) in enumerate(zip(data2['Y1'], data2['Y2'])):
+    times = np.empty((len(data2['T'])))
+    for ii, (t, y1, y2) in enumerate(zip(data2['T'], data2['Y1'], data2['Y2'])):
         backbutton2[ii] = y2[-1]
         feedback2[ii] = y1[-1]
-
+        times[ii] = t[-1]
+    plt.hist(times, bins=range(np.floor(np.min(times)).astype('int'), np.ceil(np.max(times)).astype('int') + 60, 60))
+    plt.xlabel('Length of Activity (sec)', fontsize=18)
+    plt.ylabel('Activity Count', fontsize=18)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.show()
     val, backbutton2_count = np.unique(backbutton2, return_counts=True)
 
     val, feedback2_count = np.unique(feedback2, return_counts=True)
@@ -349,4 +347,117 @@ def thresholds():
             freq = all_feat['thresh_met'][modeltype_ind, :, ind1, ind2, ind3]
             print('Threshold {:.2f}, Accuracy {:.3f}, Earliness {:.3f}, Frequency {:.3f}'.format(a, np.mean(acc), np.mean(early), np.mean(freq)))
 
-thresholds()
+def conf_mat_plot():
+    feedback_alpha_1 = np.array([[ 1.3 , 3.0 ,  0.5],
+ 			[ 1.3 ,24.3 , 1.1],
+ 			[ 0.5 , 2.8 , 0.2]])
+    backbutton_alpha_1 = np.array([[28.9 , 1.2],
+			 [ 4.5 , 0.4]])
+    feedback_alpha_8 = np.array([[ 0.8 , 3.1 , 0.3],
+   		 [ 1.1 ,23.3 , 1. ],
+   		[ 0.4 , 2.7 , 0.3]])
+    backbutton_alpha_8 = np.array([[24.8 , 1.8],
+   		  [ 4.1 , 0.4]])
+    feedback_guess = np.array([[ 0. ,  4.8 , 0. ],
+			 [ 0.,  27.8 , 0. ],
+ 			[ 0. ,  3.7 , 0. ]])
+    backbutton_guess = np.array([[31.4 , 0. ],
+ 			[ 4.9,  0. ]])
+    feedback_alpha_1 = np.round(feedback_alpha_1.T/np.sum(feedback_alpha_1, axis=1), decimals=2).T
+    backbutton_alpha_1 = np.round(backbutton_alpha_1.T/np.sum(backbutton_alpha_1, axis=1), decimals=2).T
+    feedback_alpha_8 = np.round(feedback_alpha_8.T/np.sum(feedback_alpha_8, axis=1), decimals=2).T
+    backbutton_alpha_8 = np.round(backbutton_alpha_8.T/np.sum(backbutton_alpha_8, axis=1), decimals=2).T
+    feedback_guess = np.round(feedback_guess.T/np.sum(feedback_guess, axis=1), decimals=2).T
+    backbutton_guess = np.round(backbutton_guess.T/np.sum(backbutton_guess, axis=1), decimals=2).T
+
+    fig, axs = plt.subplots(2, 3)
+    axs[0, 0].imshow(feedback_alpha_1)
+    for i in range(3):
+        for j in range(3):
+            if j == 1:
+                text = axs[0,0].text(j, i, feedback_alpha_1[i, j],
+                           ha="center", va="center", color="k")
+            else:
+                text = axs[0,0].text(j, i, feedback_alpha_1[i, j],
+                           ha="center", va="center", color="w")
+    axs[0,0].set_xticks(np.arange(3))
+    axs[0,0].set_yticks(np.arange(3))
+    axs[0,0].set_xticklabels(['Red', 'Yellow', 'Green'])
+    axs[0,0].set_yticklabels(['Red', 'Yellow', 'Green'])
+
+    axs[0, 1].imshow(feedback_alpha_8)
+    for i in range(3):
+        for j in range(3):
+            if j == 1:
+                text = axs[0,1].text(j, i, feedback_alpha_8[i, j],
+                           ha="center", va="center", color="k")
+            else:
+                text = axs[0,1].text(j, i, feedback_alpha_8[i, j],
+                           ha="center", va="center", color="w")
+    axs[0,1].set_xticks(np.arange(3))
+    axs[0,1].set_yticks(np.arange(3))
+    axs[0,1].set_xticklabels(['Red', 'Yellow', 'Green'])
+    axs[0,1].set_yticklabels(['Red', 'Yellow', 'Green'])
+
+    axs[0, 2].imshow(feedback_guess)
+    for i in range(3):
+        for j in range(3):
+            if j == 1:
+                text = axs[0,2].text(j, i, feedback_guess[i, j],
+                           ha="center", va="center", color="k")
+            else:
+                text = axs[0,2].text(j, i, feedback_guess[i, j],
+                           ha="center", va="center", color="w")
+    axs[0,2].set_xticks(np.arange(3))
+    axs[0,2].set_yticks(np.arange(3))
+    axs[0,2].set_xticklabels(['Red', 'Yellow', 'Green'])
+    axs[0,2].set_yticklabels(['Red', 'Yellow', 'Green'])
+
+    axs[1, 0].imshow(backbutton_alpha_1)
+    for i in range(2):
+        for j in range(2):
+            if j == 0:
+                text = axs[1, 0].text(j, i, backbutton_alpha_1[i, j],
+                           ha="center", va="center", color="k")
+            else:
+                text = axs[1, 0].text(j, i, backbutton_alpha_1[i, j],
+                           ha="center", va="center", color="w")
+    axs[1,0].set_xticks(np.arange(2))
+    axs[1,0].set_yticks(np.arange(2))
+    axs[1,0].set_xticklabels(['No Backbutton', 'Backbutton'])
+    axs[1,0].set_yticklabels(['No Backbutton', 'Backbutton'])
+
+    axs[1, 1].imshow(backbutton_alpha_8)
+    for i in range(2):
+        for j in range(2):
+            if j == 0:
+                text = axs[1, 1].text(j, i, backbutton_alpha_8[i, j],
+                           ha="center", va="center", color="k")
+            else:
+                text = axs[1, 1].text(j, i, backbutton_alpha_8[i, j],
+                           ha="center", va="center", color="w")
+    axs[1,1].set_xticks(np.arange(2))
+    axs[1,1].set_yticks(np.arange(2))
+    axs[1,1].set_xticklabels(['No Backbutton', 'Backbutton'])
+    axs[1,1].set_yticklabels(['No Backbutton', 'Backbutton'])
+
+    axs[1, 2].imshow(backbutton_guess)
+    for i in range(2):
+        for j in range(2):
+            if j == 0:
+                text = axs[1, 2].text(j, i, backbutton_guess[i, j],
+                           ha="center", va="center", color="k")
+            else:
+                text = axs[1, 2].text(j, i, backbutton_guess[i, j],
+                           ha="center", va="center", color="w")
+    axs[1,2].set_xticks(np.arange(2))
+    axs[1,2].set_yticks(np.arange(2))
+    axs[1,2].set_xticklabels(['No Backbutton', 'Backbutton'])
+    axs[1,2].set_yticklabels(['No Backbutton', 'Backbutton'])
+
+    axs[0,0].set_title("Alpha = 1.0")
+    axs[0,1].set_title("Alpha = 0.8")
+    axs[0,2].set_title("Guessing")
+    plt.show()
+
+conf_mat_plot()
